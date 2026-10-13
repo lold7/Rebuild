@@ -1,0 +1,74 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Customers"></app-admin-topbar>
+
+    <!-- Page Header Area -->
+    <div class="px-5 pt-5 pb-1">
+      <h2 class="m-0 fw-bold fs-3">Customer Management</h2>
+      <p class="text-muted m-0 font-size-14 mt-1">Manage your customer database and view history.</p>
+    </div>
+
+    <!-- Table Container Area -->
+    <div class="p-5" style="max-width: 1300px;">
+      <div class="admin-card p-0 overflow-hidden border-0 shadow-sm rounded-4">
+        <!-- Table Actions Toolbar -->
+        <div class="table-toolbar d-flex flex-wrap gap-3 justify-content-between align-items-center bg-white p-3 border-bottom">
+          <div class="search-bar position-relative" style="min-width: 350px; flex-grow: 1; max-width: 500px;">
+            <mat-icon class="position-absolute top-50 translate-middle-y ms-3 text-muted">search</mat-icon>
+            <input type="text" [(ngModel)]="searchQuery" class="form-control ps-5 py-2 text-dark" placeholder="Search customers by name or email...">
+          </div>
+        </div>
+
+        <!-- Customer Table -->
+        <div class="table-responsive">
+          <table class="table admin-table mb-0 align-middle table-hover">
+            <thead class="bg-white text-muted border-bottom">
+              <tr>
+                <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Customer</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Email</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Orders</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Total Spent</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Status</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white">
+              @if (filteredCustomers.length > 0) {
+                @for (customer of filteredCustomers; track customer.user_id) {
+                  <tr>
+                    <td class="ps-4 py-3 border-bottom">
+                      <div class="d-flex align-items-center gap-3">
+                        <div class="customer-avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 38px; height: 38px;">
+                          {{ getInitials(customer.username) }}
+                        </div>
+                        <div>
+                          <h6 class="m-0 fw-semibold font-size-14 text-dark mb-1">{{ customer.username }}</h6>
+                          <small class="text-muted font-size-12">Member</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-secondary font-size-14 border-bottom">{{ customer.email }}</td>
+                    <td class="text-dark font-size-14 border-bottom">{{ customer.order_count || 0 }}</td>
+                    <td class="text-dark font-size-14 fw-medium border-bottom">${{ customer.total_spent ? (+customer.total_spent).toFixed(2) : '0.00' }}</td>
+                    <td class="border-bottom">
+                      <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1 fw-normal border border-success-subtle">Active</span>
+                    </td>
+                  </tr>
+                }
+              } @else {
+                <tr>
+                  <td colspan="5" class="text-center text-muted py-4">No customers found.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
+          <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong>{{ filteredCustomers.length }}</strong> results</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
