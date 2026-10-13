@@ -1,0 +1,198 @@
+<!-- ========== HEADER SECTION ========== -->
+<section class="order-hero text-center" id="order-header">
+  <div class="container">
+    <h1>Your order history</h1>
+    <p>Review every past purchase and track the details of each order.</p>
+  </div>
+</section>
+
+<!-- Sub-header -->
+<section class="order-subheader text-center py-4" id="order-subheader">
+  <div class="container">
+    <span class="sub-label text-muted text-uppercase small fw-bold">Orders</span>
+    <h2>Your purchases, laid bare</h2>
+    <p class="text-muted">Each order lists the title, date, what you paid, what format they are, and where it was sent. Just click.</p>
+    <a routerLink="/products" class="btn btn-outline-dark rounded-pill px-4 btn-sm mt-3">Browse Books</a>
+  </div>
+</section>
+
+<!-- ========== TIMELINE SECTION ========== -->
+<section class="timeline-section py-4 bg-light" id="timeline-section">
+  <div class="container">
+    <div class="row g-4 justify-content-center" style="max-width: 900px; margin: 0 auto;">
+      <div class="col-md-4">
+        <div class="card p-3 border rounded-3 h-100 bg-white">
+          <h5 class="fw-bold">December</h5>
+          <p class="text-muted small mb-0">Ordered 3 books. Delivered. Payment confirmed for all orders. Shipments completed.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 border rounded-3 h-100 bg-white">
+          <h5 class="fw-bold">November</h5>
+          <p class="text-muted small mb-0">One gift purchase. Payment confirmed. Express delivery selected. All items delivered.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 border rounded-3 h-100 bg-white">
+          <h5 class="fw-bold">October</h5>
+          <p class="text-muted small mb-0">Ordered 2 items. One returned for a refund. Refund processed. Remaining item delivered.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FEATURES LIST / WHAT YOU ORDERED ========== -->
+<section class="ordered-section py-5" id="features-section">
+  <div class="container">
+    <div class="text-center mb-4">
+      <span class="section-label text-muted text-uppercase small fw-bold">Items</span>
+      <h2>What you ordered</h2>
+      <p class="section-desc mx-auto text-muted">Each title is listed with its cover, format, date, and price. Everything from hardcover to audiobook in one place.</p>
+    </div>
+
+    <div id="order-list" class="mb-4" style="max-width: 800px; margin: 0 auto;">
+      @if (orders.length > 0) {
+        @for (order of orders; track order.order_id) {
+          <div class="card border mb-3 rounded-3 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <h6 class="fw-bold mb-1">Order #{{ order.order_id }}</h6>
+                  <small class="text-muted">{{ order.created_at | date:'longDate' }}</small>
+                </div>
+                <div class="text-end">
+                  <span class="badge rounded-pill px-3 py-1 mb-1"
+                    [ngClass]="{
+                      'bg-success': order.status === 'completed',
+                      'bg-danger': order.status === 'cancelled',
+                      'bg-warning text-dark': order.status === 'pending'
+                    }">
+                    {{ order.status | titlecase }}
+                  </span>
+                  <div class="fw-bold">${{ (+order.total_price).toFixed(2) }}</div>
+                </div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                <small class="text-muted">Payment: {{ order.payment_method || 'N/A' }}</small>
+              </div>
+            </div>
+
+            <!-- Order items list -->
+            @if (order.items && order.items.length > 0) {
+              <div class="card-body border-top pt-3 bg-light rounded-bottom-3">
+                @for (item of order.items; track item.order_item_id) {
+                  <div class="d-flex align-items-center gap-3 mb-2 pb-2 border-bottom">
+                    <img [src]="getImageUrl(item.product_images)" class="rounded" width="45" height="60" style="object-fit:cover;" [alt]="item.product_name">
+                    <div class="flex-grow-1">
+                      <span class="fw-bold">{{ item.product_name }}</span><br>
+                      <small class="text-muted">Qty: {{ item.quantity }}</small>
+                    </div>
+                    <span class="fw-bold">${{ (+item.unit_price * item.quantity).toFixed(2) }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      } @else {
+        <div class="text-center py-5">
+          <mat-icon class="fs-1 text-muted">remove_shopping_cart</mat-icon>
+          <h5 class="mt-3 text-muted">No orders yet</h5>
+          <p class="text-muted">When you make a purchase, your orders will appear here.</p>
+          <a routerLink="/products" class="btn btn-primary rounded-pill px-4">Browse Products</a>
+        </div>
+      }
+    </div>
+
+    <!-- Product Card highlight -->
+    <div class="order-product-card mx-auto mt-5" style="max-width: 700px;">
+      <div class="row g-0 border rounded-4 overflow-hidden shadow-sm">
+        <div class="col-md-6 card-info p-4 d-flex flex-column justify-content-center bg-light">
+          <span class="card-tag text-muted text-uppercase small fw-bold mb-2"><mat-icon class="me-1">menu_book</mat-icon> Fiction</span>
+          <h3 class="fw-bold">The old man and the sea</h3>
+          <p class="card-desc text-muted small">Hardcover • Ordered 5 days ago • $18.00 USD</p>
+          <a routerLink="/products" class="card-link fw-bold text-dark text-decoration-none">Details <mat-icon>chevron_right</mat-icon></a>
+        </div>
+        <div class="col-md-6 card-image">
+          <img src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop" alt="The Old Man and the Sea" class="w-100 h-100" style="object-fit:cover; min-height: 200px;">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FAQ SECTION ========== -->
+<section class="order-faq py-5" id="faq-section">
+  <div class="container" style="max-width: 780px;">
+    <div class="text-center mb-5">
+      <h2>Questions</h2>
+      <p class="text-muted">Find answers to common questions about your order history and payments.</p>
+    </div>
+
+    <mat-accordion>
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">How do I track my order?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          After placing an order, you'll receive a confirmation email with a tracking number. You can also find real-time tracking updates by clicking on any order in your history above. Delivery notifications are sent automatically.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">What's your return policy?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Books can be returned within thirty days of purchase if they remain in original condition. Shipping is free for returns. Once received, refunds are processed within five business days to your original payment method.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Can I modify my order?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Orders can be modified within one hour of placement. After that, the order enters our fulfillment process and cannot be changed. Contact us immediately with your order number and requested changes.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">How long does shipping take?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Standard shipping takes five to seven business days. Express delivery is available at checkout for two to three business day delivery. Free shipping is included on orders over fifty dollars.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Do you ship internationally?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Yes, we ship to most countries worldwide. International delivery typically takes ten to fourteen business days. Customs duties and taxes may apply depending on your destination and local regulations.
+        </p>
+      </mat-expansion-panel>
+    </mat-accordion>
+
+    <div class="text-center mt-5 pt-3">
+      <h4 class="fw-bold mb-2">Need more help?</h4>
+      <p class="text-muted mb-3">Reach out to our team anytime.</p>
+      <a routerLink="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA SECTION ========== -->
+<section class="container my-5" id="cta-section">
+  <div class="rounded-4 text-center text-white py-5 px-4 position-relative overflow-hidden" style="background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1200&auto=format&fit=crop') center/cover no-repeat; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <h2 class="fw-bold display-6 mb-2">Questions about your order?</h2>
+    <p class="mb-4 opacity-75">Our support team is always a few clicks away.</p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a routerLink="/contact" class="btn btn-primary rounded-pill px-4">Contact</a>
+      <a routerLink="/faq" class="btn btn-outline-light rounded-pill px-4">FAQ</a>
+    </div>
+  </div>
+</section>

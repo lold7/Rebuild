@@ -1,0 +1,170 @@
+<!-- ========== HEADER SECTION ========== -->
+<section class="address-hero text-center" id="address-header">
+  <div class="container">
+    <h1>My address book</h1>
+    <p>Keep your shipping and billing information up to date for faster checkout.</p>
+  </div>
+</section>
+
+<!-- Primary Address -->
+<section class="primary-address" id="primary-address">
+  <div class="container">
+    @if (defaultAddress) {
+      <span class="badge-primary"><mat-icon class="me-1">location_on</mat-icon> Primary</span>
+      <h2>{{ defaultAddress.address_line }}</h2>
+      <p class="address-detail">{{ defaultAddress.city }}{{ defaultAddress.province ? ', ' + defaultAddress.province : '' }} {{ defaultAddress.postal_code }}</p>
+    } @else {
+      <span class="badge-primary"><mat-icon class="me-1">location_on</mat-icon> Primary</span>
+      <h2>No default address set</h2>
+      <p class="address-detail">Add an address below to get started.</p>
+    }
+  </div>
+</section>
+
+<!-- ========== FEATURES LIST SECTION ========== -->
+<section class="address-list-section py-4" id="features-section">
+  <div class="container" style="max-width: 860px;">
+    <div id="address-list" class="mb-4">
+      @if (addresses.length > 0) {
+        <div class="row g-4">
+          @for (addr of addresses; track addr.address_id) {
+            <div class="col-md-6">
+              <div class="address-entry p-3 border rounded-3 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span class="entry-label"><mat-icon class="me-1">location_on</mat-icon> {{ addr.label }}</span>
+                  @if (addr.is_default) {
+                    <span class="badge bg-primary rounded-pill">Default</span>
+                  }
+                </div>
+                <h4>{{ addr.full_name }}</h4>
+                <p class="entry-detail mb-1">{{ addr.address_line }}</p>
+                <p class="entry-detail mb-1">{{ addr.city }}{{ addr.province ? ', ' + addr.province : '' }} {{ addr.postal_code }}</p>
+                @if (addr.phone) {
+                  <p class="entry-detail mb-1">Phone: {{ addr.phone }}</p>
+                }
+                <div class="d-flex gap-2 mt-3 flex-wrap">
+                  @if (!addr.is_default) {
+                    <button (click)="setDefault(addr)" class="btn btn-outline-primary rounded-pill px-3 btn-sm">Set Default</button>
+                  }
+                  <button (click)="deleteAddress(addr)" class="btn btn-outline-danger rounded-pill px-3 btn-sm">Delete</button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="text-center py-4">
+          <mat-icon class="fs-1 text-muted">location_on</mat-icon>
+          <p class="text-muted mt-2">No addresses saved yet. Add one below.</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA FORM SECTION ========== -->
+<section class="cta-form-section text-center py-5 bg-light" id="cta-form">
+  <div class="container" style="max-width: 600px;">
+    <h2>Add new address<br>Enter details</h2>
+    <p>Tell us your address. You can save multiple addresses and set one as your default.</p>
+    <form [formGroup]="addressForm" (ngSubmit)="onSaveAddress()" class="text-start mt-4">
+      <div class="mb-3">
+        <label for="label" class="form-label fw-bold">Label</label>
+        <input type="text" class="form-control" id="label" formControlName="label" placeholder="e.g. Home, Office">
+      </div>
+      <div class="mb-3">
+        <label for="full_name" class="form-label fw-bold">Full Name</label>
+        <input type="text" class="form-control" id="full_name" formControlName="full_name" placeholder="Your full name" required>
+      </div>
+      <div class="mb-3">
+        <label for="phone" class="form-label fw-bold">Phone</label>
+        <input type="text" class="form-control" id="phone" formControlName="phone" placeholder="+1 (555) 000-0000">
+      </div>
+      <div class="mb-3">
+        <label for="address_line" class="form-label fw-bold">Address Line</label>
+        <input type="text" class="form-control" id="address_line" formControlName="address_line" placeholder="e.g. 123 Main St, Apt 4" required>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label for="city" class="form-label fw-bold">City</label>
+          <input type="text" class="form-control" id="city" formControlName="city" placeholder="City">
+        </div>
+        <div class="col-md-4">
+          <label for="province" class="form-label fw-bold">Province</label>
+          <input type="text" class="form-control" id="province" formControlName="province" placeholder="Province/State">
+        </div>
+        <div class="col-md-4">
+          <label for="postal_code" class="form-label fw-bold">Postal Code</label>
+          <input type="text" class="form-control" id="postal_code" formControlName="postal_code" placeholder="Postal code">
+        </div>
+      </div>
+      <div class="text-center">
+        <button type="submit" [disabled]="addressForm.invalid" class="btn btn-save btn-primary rounded-pill px-5 fw-bold">Save Address</button>
+      </div>
+    </form>
+    <p class="form-note mt-3 text-muted small">Saved addresses serve as your order destinations.</p>
+  </div>
+</section>
+
+<!-- ========== FAQ SECTION ========== -->
+<section class="address-faq py-5" id="faq-section">
+  <div class="container" style="max-width: 780px;">
+    <div class="text-center mb-5">
+      <h2>Questions</h2>
+      <p class="text-muted">Find answers to common questions about your address settings.</p>
+    </div>
+
+    <mat-accordion>
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">How do I set a default address?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Navigate to your address book, click "Set Default" on any saved address. Your default address will be pre-filled during checkout for faster ordering.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Can I save multiple addresses?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Yes, you can save as many addresses as you need. You can add home, office, or other addresses. During checkout, simply select the address you'd like to ship to from your saved list.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">How do I edit an address?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Add the updated address details or delete the obsolete entry. Your updated address will be used for future orders that select it.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Can I delete an address?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Yes, click "Delete" next to the address you'd like to remove. If it's your default address, you'll need to assign a new default before deleting. Already-placed orders will not be affected.
+        </p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">What if I move?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted">
+          Add your new address using the form above. You can keep your old address for reference or delete it. Set the new address as default so future orders ship to the right place.
+        </p>
+      </mat-expansion-panel>
+    </mat-accordion>
+
+    <div class="text-center mt-5 pt-3">
+      <h4 class="fw-bold mb-2">Need more help?</h4>
+      <p class="text-muted mb-3">Reach out to our team.</p>
+      <a routerLink="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+    </div>
+  </div>
+</section>
