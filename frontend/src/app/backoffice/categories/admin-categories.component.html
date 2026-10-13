@@ -1,0 +1,135 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Categories"></app-admin-topbar>
+
+    <div class="p-4" style="max-width: 1400px;">
+      <!-- Page Header & Actions -->
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+          <h2 class="fw-bold mb-1 fs-3">Category Management</h2>
+          <p class="text-muted m-0 font-size-14">Organize your bookstore catalog structure</p>
+        </div>
+        <div class="d-flex gap-3">
+          <button (click)="openAddModal()" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
+            <mat-icon>add</mat-icon> Add New Category
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="admin-card p-0 overflow-hidden border-0">
+        <div class="table-responsive">
+          <table class="table admin-table mb-0 align-middle table-hover">
+            <thead class="bg-white text-muted border-bottom">
+              <tr>
+                <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; width: 60px;">#</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; width: 200px;">Category Name</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Description</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; width: 140px;">Total Books</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; width: 120px;">Status</th>
+                <th class="pe-4 text-end text-uppercase fw-semibold" style="letter-spacing: 0.05em; width: 100px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (categories.length > 0) {
+                @for (category of categories; track category.category_id; let index = $index) {
+                  <tr>
+                    <td class="ps-4 text-muted font-size-14">{{ index + 1 }}</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-3">
+                        <div class="bg-primary-subtle text-primary rounded d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                          <mat-icon>menu_book</mat-icon>
+                        </div>
+                        <h6 class="m-0 fw-bold font-size-14">{{ category.category_name }}</h6>
+                      </div>
+                    </td>
+                    <td class="text-muted font-size-14 text-truncate" style="max-width: 350px;">{{ category.category_image || '-' }}</td>
+                    <td class="fw-medium text-dark">{{ category.product_count || 0 }}</td>
+                    <td>
+                      <button (click)="toggleStatus(category)"
+                        class="badge rounded-pill px-3 py-1 fw-normal border"
+                        [ngClass]="category.is_visible ? 'bg-success-subtle text-success border-success-subtle' : 'bg-danger-subtle text-danger border-danger-subtle'"
+                        style="cursor:pointer;">
+                        {{ category.is_visible ? 'Active' : 'Hidden' }}
+                      </button>
+                    </td>
+                    <td class="pe-4 text-end">
+                      <button (click)="openEditModal(category)" class="btn btn-link text-muted p-1 me-2 text-decoration-none" title="Edit">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button (click)="deleteCategory(category)" class="btn btn-link text-danger p-1 text-decoration-none" title="Delete">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              } @else {
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No categories found.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Category Modal -->
+@if (showAddModal) {
+  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Add New Category</h5>
+          <button type="button" class="btn-close" (click)="closeAddModal()"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Category Name</label>
+            <input type="text" [(ngModel)]="newCategory.category_name" class="form-control" placeholder="Enter category name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium">Category Image URL</label>
+            <input type="text" [(ngModel)]="newCategory.category_image" class="form-control" placeholder="Enter image URL (optional)">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-white border" (click)="closeAddModal()">Cancel</button>
+          <button type="button" (click)="submitAddCategory()" class="btn btn-primary">Add Category</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edit Category Modal -->
+@if (showEditModal && editingCategory) {
+  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Edit Category</h5>
+          <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Category Name</label>
+            <input type="text" [(ngModel)]="editingCategory.category_name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium">Category Image URL</label>
+            <input type="text" [(ngModel)]="editingCategory.category_image" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-white border" (click)="closeEditModal()">Cancel</button>
+          <button type="button" (click)="submitEditCategory()" class="btn btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
