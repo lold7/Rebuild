@@ -1,0 +1,43 @@
+<!-- ========== HEADER SECTION ========== -->
+<section class="already-hero text-center py-5" id="already-hero">
+  <div class="container">
+    <h1 class="display-4 fw-bold">Welcome back</h1>
+    <p class="text-muted">Sign in to your account and continue browsing your favorite books</p>
+  </div>
+</section>
+
+<!-- ========== FEATURE LIST SECTION ========== -->
+<section class="existing-section py-5 bg-light" id="feature-list">
+  <div class="container text-center mb-5">
+    <span class="section-label text-muted text-uppercase small fw-bold">Existing</span>
+    <h2 class="fw-bold">Already have an account</h2>
+    <p class="section-subtitle text-muted">Sign in with your credentials now</p>
+  </div>
+
+  <div class="container">
+    <div class="row g-4 justify-content-center" style="max-width: 820px; margin: 0 auto;">
+      <!-- Card 1: Log in -->
+      <div class="col-md-6">
+        <div class="card p-4 border rounded-4 h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+          <div>
+            <span class="text-muted text-uppercase small fw-bold">Access</span>
+            <h3 class="fw-bold mt-2">Log in to your account</h3>
+            <p class="text-muted small">Continue where you left off</p>
+          </div>
+          <a routerLink="/auth/login" class="text-dark fw-bold text-decoration-none mt-3">Login <mat-icon>chevron_right</mat-icon></a>
+        </div>
+      </div>
+      <!-- Card 2: Sign Up -->
+      <div class="col-md-6">
+        <div class="card p-4 border rounded-4 h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+          <div>
+            <span class="text-muted text-uppercase small fw-bold">New</span>
+            <h3 class="fw-bold mt-2">Create a new account here</h3>
+            <p class="text-muted small">Join us and start exploring</p>
+          </div>
+          <a routerLink="/auth/register" class="text-dark fw-bold text-decoration-none mt-3">Sign Up <mat-icon>chevron_right</mat-icon></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

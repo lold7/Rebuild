@@ -1,0 +1,45 @@
+<!-- ========== HEADER SECTION ========== -->
+<section class="container my-5 text-center" id="header-section">
+  <h1 class="display-4 fw-bold mb-3">Questions answered</h1>
+  <p class="text-muted">Find what you need or reach out to our team for additional help.</p>
+</section>
+
+<!-- ========== FAQ SECTION ========== -->
+<section class="container mb-5" id="faq-section">
+  <div class="text-center mb-5">
+    <h2 class="display-5 fw-bold">FAQs</h2>
+    <p class="text-muted">Common questions about orders, shipping, returns, and your account.</p>
+  </div>
+
+  <div class="mx-auto" style="max-width: 780px;">
+    <mat-accordion>
+      @for (faq of faqs; track faq.faq_id) {
+        <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+          <mat-expansion-panel-header>
+            <mat-panel-title class="fw-bold">{{ faq.question }}</mat-panel-title>
+          </mat-expansion-panel-header>
+          <div class="text-muted">{{ faq.answer }}</div>
+        </mat-expansion-panel>
+      }
+    </mat-accordion>
+
+    <!-- Still have questions -->
+    <div class="text-center mt-5 pt-4">
+      <h3 class="fw-bold mb-2">Still have questions?</h3>
+      <p class="text-muted mb-3">Reach out to our team anytime</p>
+      <a routerLink="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== CTA SECTION ========== -->
+<section class="container my-5" id="cta-section">
+  <div class="rounded-4 text-center text-white py-5 px-4 position-relative overflow-hidden" style="background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1200&auto=format&fit=crop') center/cover no-repeat; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <h2 class="fw-bold display-6 mb-2">Need more help or answers?</h2>
+    <p class="mb-4 opacity-75">Our team is ready to assist with any questions or concerns</p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a routerLink="/contact" class="btn btn-primary rounded-pill px-4">Contact</a>
+      <a routerLink="/faq" class="btn btn-outline-light rounded-pill px-4">FAQ</a>
+    </div>
+  </div>
+</section>

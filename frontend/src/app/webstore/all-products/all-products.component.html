@@ -1,0 +1,34 @@
+<section class="container my-5 text-center">
+  <h1 class="display-5 fw-bold mb-3">All books products</h1>
+  <p class="text-muted">Discover our curated collection of literature and non-fiction.</p>
+</section>
+
+<section class="container mb-5">
+  <div class="text-center mb-4">
+    <span class="text-muted text-uppercase small fw-bold">Collection</span>
+    <h2 class="fw-bold">Books</h2>
+    <p class="text-muted small">Explore the stories that enrich every genre.</p>
+  </div>
+
+  <div id="product-list" class="row justify-content-center">
+    @for (product of displayedProducts; track product.product_id) {
+      <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+        <div class="card border-0 h-100 bg-transparent text-center book-card-hover" (click)="goToProduct(product.product_id)" style="cursor:pointer;">
+          <img [src]="getImageUrl(product.product_images)" class="card-img-top rounded-4 shadow-sm mb-3" [alt]="product.product_name" style="height: 320px; object-fit: cover;">
+          <h6 class="fw-bold mb-1">{{ product.product_name }}</h6>
+          <p class="text-muted small mb-1">{{ product.author || 'Unknown Author' }}</p>
+          <p class="fw-bold">${{ (+product.product_price).toFixed(2) }}</p>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="d-flex justify-content-center mt-5">
+    <mat-paginator [length]="products.length"
+                   [pageSize]="pageSize"
+                   [pageSizeOptions]="[8, 12, 16, 24]"
+                   (page)="onPageChange($event)"
+                   aria-label="Select page">
+    </mat-paginator>
+  </div>
+</section>

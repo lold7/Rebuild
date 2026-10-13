@@ -1,0 +1,32 @@
+<section class="container mt-5 pt-4">
+  <span class="text-muted text-uppercase small fw-bold">Found</span>
+  <h1 class="display-4 fw-bold mb-3">Results for "<span id="search-query-display">{{ query }}</span>"</h1>
+  <p class="text-muted" id="search-result-count">{{ products.length }} product{{ products.length !== 1 ? 's' : '' }} found</p>
+</section>
+
+<section class="container my-5 pb-5" id="search-results-container">
+  <div class="row g-4" id="book-collection">
+    @if (products.length === 0) {
+      <div class="col-12 text-center py-5">
+        <h4 class="text-muted">No products found for "{{ query }}"</h4>
+        <p class="text-muted">Try a different search term or browse our categories.</p>
+        <a routerLink="/products" class="btn btn-primary rounded-pill px-4 mt-3">Browse All Products</a>
+      </div>
+    } @else {
+      @for (p of products; track p.product_id) {
+        <div class="col-6 col-md-4 col-lg-3 book-item">
+          <div class="card border-0 h-100 book-card-hover" style="cursor:pointer;" [routerLink]="['/product', p.product_id]">
+            <img [src]="getImageUrl(p.product_images)" class="card-img-top rounded-4" [alt]="p.product_name" style="height: 280px; object-fit: cover;">
+            <div class="card-body">
+              <h6 class="card-title fw-bold">{{ p.product_name }}</h6>
+              @if (p.author) {
+                <p class="text-muted small mb-1">{{ p.author }}</p>
+              }
+              <p class="text-muted small">${{ (+p.product_price).toFixed(2) }}</p>
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</section>

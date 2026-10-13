@@ -1,0 +1,171 @@
+<section class="container mt-5 pt-4 text-center">
+  <h1 class="display-4 fw-bold mb-3">Our Contact</h1>
+  <p class="text-muted">We're here to help and answer any question you might have.</p>
+</section>
+
+<section class="container my-5 py-5">
+  <div class="row g-5">
+    <div class="col-lg-4">
+      <span class="text-muted text-uppercase small fw-bold">Chat</span>
+      <h2 class="fw-bold mb-5">Get in touch</h2>
+      <div class="mb-4">
+        <h6 class="fw-bold"><mat-icon class="me-2 text-primary">location_on</mat-icon> Address</h6>
+        <p class="text-muted small ms-4 mb-0">Level 2, 45 King Street,<br>Sydney NSW 2000, Australia</p>
+      </div>
+      <div class="mb-4">
+        <h6 class="fw-bold"><mat-icon class="me-2 text-primary">phone</mat-icon> Phone</h6>
+        <p class="text-muted small ms-4 mb-0">Mon-Fri from 9am to 6pm.<br>+1 800 555 123</p>
+      </div>
+      <div class="mb-4">
+        <h6 class="fw-bold"><mat-icon class="me-2 text-primary">email</mat-icon> Email</h6>
+        <p class="text-muted small ms-4 mb-0">Our friendly team is here to help.<br><a href="mailto:hello@inwzabookstore.com">hello&#64;inwzabookstore.com</a></p>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="card border-0 rounded-4 overflow-hidden h-100 shadow-sm" style="min-height: 400px;">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d26544.75549007425!2d151.1960255!3d-33.8688197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6b12ae235c441b4f%3A0x5017d681632a680!2sSydney%20NSW%202000%2C%20Australia!5e0!3m2!1sen!2sth!4v1700000000000!5m2!1sen!2sth"
+          width="100%"
+          height="100%"
+          style="border:0;"
+          allowfullscreen=""
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-light py-5 my-5">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <span class="text-muted text-uppercase small fw-bold">Visit us</span>
+      <h2 class="fw-bold">Locations</h2>
+      <p class="text-muted small">Come visit our stores to browse our collection in person.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-6">
+        <div class="card border-0 bg-transparent text-center">
+          <img src="https://images.unsplash.com/photo-1568668392383-58c369615742?q=80&w=800&auto=format&fit=crop" class="card-img-top rounded-4 mb-3" alt="Sydney Store" style="height: 300px; object-fit: cover;">
+          <div class="card-body">
+            <h4 class="fw-bold">Sydney</h4>
+            <p class="text-muted small mb-3">Level 2, 45 King Street, Sydney NSW</p>
+            <a href="#" class="text-dark fw-bold text-decoration-none">Get directions <mat-icon class="small">chevron_right</mat-icon></a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-0 bg-transparent text-center">
+          <img src="https://images.unsplash.com/photo-1521587760476-6c12a4b040da?q=80&w=800&auto=format&fit=crop" class="card-img-top rounded-4 mb-3" alt="New York Store" style="height: 300px; object-fit: cover;">
+          <div class="card-body">
+            <h4 class="fw-bold">New York</h4>
+            <p class="text-muted small mb-3">123 Broadway, New York, NY 10001</p>
+            <a href="#" class="text-dark fw-bold text-decoration-none">Get directions <mat-icon class="small">chevron_right</mat-icon></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container my-5 py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="row g-5">
+        <div class="col-md-5">
+          <span class="text-muted text-uppercase small fw-bold">Write</span>
+          <h2 class="fw-bold mb-4">Send a message</h2>
+          <p class="text-muted small mb-5">Fill out the form and our team will get back to you within 24 hours.</p>
+
+          <div class="d-flex align-items-center mb-3">
+            <mat-icon class="fs-4 me-3 text-muted">phone</mat-icon>
+            <div>
+              <h6 class="fw-bold mb-0">Call us</h6>
+              <p class="text-muted small mb-0">+1 800 555 123</p>
+            </div>
+          </div>
+          <div class="d-flex align-items-center">
+            <mat-icon class="fs-4 me-3 text-muted">email</mat-icon>
+            <div>
+              <h6 class="fw-bold mb-0">Email us</h6>
+              <p class="text-muted small mb-0"><a href="mailto:hello@inwzabookstore.com">hello&#64;inwzabookstore.com</a></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-7">
+          <form (ngSubmit)="onSubmit()">
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">First name</label>
+                <input type="text" [(ngModel)]="formData.firstName" name="firstName" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Last name</label>
+                <input type="text" [(ngModel)]="formData.lastName" name="lastName" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+            </div>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Email</label>
+                <input type="email" [(ngModel)]="formData.email" name="email" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Phone number</label>
+                <input type="tel" [(ngModel)]="formData.phone" name="phone" class="form-control bg-light border-0 rounded-3 py-2">
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label fw-bold small">Subject</label>
+              <select [(ngModel)]="formData.subject" name="subject" class="form-select bg-light border-0 rounded-3 py-2">
+                <option value="General Inquiry">General Inquiry</option>
+                <option value="Order Status">Order Status</option>
+                <option value="Returns & Refunds">Returns & Refunds</option>
+                <option value="Partnerships">Partnerships</option>
+              </select>
+            </div>
+            <div class="mb-4">
+              <label class="form-label fw-bold small">Message</label>
+              <textarea [(ngModel)]="formData.message" name="message" class="form-control bg-light border-0 rounded-3" rows="5" placeholder="Leave us a message..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary rounded-pill py-2 px-5 fw-bold">Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container my-5 py-5 w-75 border-top">
+  <div class="text-center mb-5">
+    <h2 class="fw-bold">Questions</h2>
+    <p class="text-muted">Find answers to what customers are asking most.</p>
+  </div>
+
+  <mat-accordion>
+    <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+      <mat-expansion-panel-header>
+        <mat-panel-title class="fw-bold">Where is my order?</mat-panel-title>
+      </mat-expansion-panel-header>
+      <p class="text-muted small">
+        You can track your order status in your Account page, or click the tracking link in your shipping confirmation email.
+      </p>
+    </mat-expansion-panel>
+
+    <mat-expansion-panel class="mb-3 border-bottom shadow-none">
+      <mat-expansion-panel-header>
+        <mat-panel-title class="fw-bold">Can I cancel my order?</mat-panel-title>
+      </mat-expansion-panel-header>
+      <p class="text-muted small">
+        Orders can be cancelled within 1 hour of placing them. After that, they enter our processing system and cannot be changed.
+      </p>
+    </mat-expansion-panel>
+  </mat-accordion>
+
+  <div class="text-center mt-5">
+    <p class="mb-2 fw-bold">Still need help?</p>
+    <button (click)="scrollToTop()" class="btn btn-light border rounded-pill px-4 shadow-sm">Back to top</button>
+  </div>
+</section>
