@@ -1,0 +1,59 @@
+<section class="container mt-5 pt-5 text-center">
+  <h1 class="display-5 fw-bold mb-3">Log in to your account</h1>
+  <p class="text-muted">Welcome back. Please log in to continue shopping and access your orders.</p>
+</section>
+
+<section class="container my-5 py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="row g-5">
+        <div class="col-md-5">
+          <h2 class="fw-bold">Enter your credentials</h2>
+        </div>
+        <div class="col-md-7">
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" id="login-form">
+            @if (errorMessage) {
+              <div class="alert alert-danger">{{ errorMessage }}</div>
+            }
+            <div class="mb-4">
+              <label class="form-label fw-bold small">Email</label>
+              <input type="email" id="login-email" formControlName="email" class="form-control bg-light border-0 rounded-3 py-2" placeholder="name@example.com" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold small">Password</label>
+              <input type="password" id="login-password" formControlName="password" class="form-control bg-light border-0 rounded-3 py-2" placeholder="Enter your password" required>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rememberMe" formControlName="rememberMe">
+                <label class="form-check-label small text-muted" for="rememberMe">Remember Me</label>
+              </div>
+              <a href="#" class="text-dark small fw-bold text-decoration-none">Forgot your password?</a>
+            </div>
+            <div class="d-grid gap-3">
+              <button type="submit" [disabled]="loginForm.invalid || isLoading" class="btn btn-primary rounded-pill py-2 fw-bold w-50">
+                {{ isLoading ? 'Signing In...' : 'Submit' }}
+              </button>
+              <a routerLink="/backoffice/login" class="btn btn-outline-primary rounded-pill py-2 fw-bold w-50 border-0 text-decoration-underline text-start ps-0">
+                Login with admin account
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container my-5 pb-5">
+  <div class="card border-0 rounded-4 text-center py-5" style="background-color: #a9a9a9;">
+    <div class="card-body py-4">
+      <h2 class="fw-bold text-white mb-3">New to InwZa Bookstore?</h2>
+      <p class="text-white mb-4">Create an account to start building your library and tracking your orders with ease.</p>
+      <div class="d-flex justify-content-center gap-3">
+        <a routerLink="/auth/register" class="btn btn-primary rounded-pill px-5 fw-bold border-white">Sign up</a>
+        <a routerLink="/" class="btn btn-secondary rounded-pill px-4 text-white border-0" style="background-color: rgba(255,255,255,0.2);">Browse as guest</a>
+      </div>
+    </div>
+  </div>
+</section>
