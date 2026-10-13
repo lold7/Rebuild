@@ -1,0 +1,30 @@
+.navbar-logo {
+  max-width: 100px;
+  height: auto;
+  border-radius: 5px;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+@media (max-width: 991.98px) {
+  .collapse:not(.show) {
+    display: none !important;
+  }
+  .collapse.show {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f0f0f0;
+  }
+}
