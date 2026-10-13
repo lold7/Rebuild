@@ -1,0 +1,83 @@
+<section class="container mt-5 pt-5 text-center">
+  <h1 class="display-4 fw-normal mb-3 text-dark" style="font-size: 3rem;">Complete your order</h1>
+  <p class="text-dark" style="font-size: 0.95rem;">Your payment is protected and encrypted. We process orders quickly and securely.</p>
+</section>
+
+<!-- Checkout Order Summary -->
+<section class="container my-5" style="max-width: 800px;">
+  <div class="row g-5">
+    <!-- Left: Order Summary -->
+    <div class="col-md-7">
+      <h5 class="fw-bold mb-3">Order Summary</h5>
+      <div id="checkout-items">
+        @for (item of cartItems; track item.cart_item_id) {
+          <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+            <img [src]="getImageUrl(item.product_images)" class="rounded-3" width="60" height="80" style="object-fit:cover;" [alt]="item.product_name">
+            <div class="flex-grow-1">
+              <h6 class="fw-bold mb-0">{{ item.product_name }}</h6>
+              <small class="text-muted">{{ item.selected_attributes?.format || 'Paperback' }} x {{ item.quantity }}</small>
+            </div>
+            <span class="fw-bold">${{ (+item.product_price * item.quantity).toFixed(2) }}</span>
+          </div>
+        }
+      </div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+        <span class="fw-bold fs-5">Total</span>
+        <h4 class="fw-bold mb-0 text-primary">${{ total.toFixed(2) }}</h4>
+      </div>
+    </div>
+
+    <!-- Right: Shipping Address Selection -->
+    <div class="col-md-5">
+      <h5 class="fw-bold mb-3">Shipping Address</h5>
+      <div id="checkout-address">
+        @if (addresses.length > 0) {
+          @for (addr of addresses; track addr.address_id) {
+            <div class="form-check mb-3 p-3 border rounded-3 bg-white" [class.border-primary]="selectedAddressId === addr.address_id" (click)="selectedAddressId = addr.address_id" style="cursor: pointer;">
+              <input class="form-check-input" type="radio" name="shipping-address" [id]="'addr-' + addr.address_id" [value]="addr.address_id" [checked]="selectedAddressId === addr.address_id">
+              <label class="form-check-label w-100" [for]="'addr-' + addr.address_id">
+                <strong>{{ addr.label }}</strong> — {{ addr.full_name }}<br>
+                <small class="text-muted">{{ addr.address_line }}, {{ addr.city }} {{ addr.postal_code }}</small>
+              </label>
+            </div>
+          }
+        } @else {
+          <p class="text-muted">No addresses saved. <a routerLink="/account/addresses">Add one here</a>.</p>
+        }
+      </div>
+
+      <a routerLink="/account/addresses" class="btn btn-outline-secondary rounded-pill px-4 w-100 mb-2">Add New Address</a>
+      <button (click)="continueToPayment()" class="btn btn-primary rounded-pill px-5 fw-bold w-100 mt-3">Continue to Payment</button>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="container my-5 pt-5 pb-4 mx-auto" style="max-width: 800px;">
+  <div class="text-center mb-5 pb-3">
+    <h2 class="fw-normal mb-3 text-dark" style="font-size: 2.5rem;">Questions</h2>
+    <p class="text-dark small" style="font-size: 0.95rem;">Find answers to the most common questions about payment and delivery</p>
+  </div>
+
+  <div class="faq-list px-3">
+    <div class="mb-4 pb-3">
+      <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">How long does shipping take</h6>
+      <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Standard delivery arrives within five to seven business days. Express shipping takes two business days. International orders may require additional time depending on customs clearance.</p>
+    </div>
+    <div class="mb-4 pb-3">
+      <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">What payment methods do you accept</h6>
+      <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">We accept all major credit cards, debit cards, and digital wallets. Your payment information is encrypted and processed securely through our trusted payment partner.</p>
+    </div>
+    <div class="mb-4 pb-3">
+      <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">Can I change my order after placing it</h6>
+      <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Orders can be modified within one hour of placement. After that, contact our support team immediately to request changes before your order ships.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Need more help section -->
+<section class="container text-center mb-5 pb-5">
+  <h4 class="fw-normal mb-3 text-dark" style="font-size: 1.8rem;">Need more help</h4>
+  <p class="text-dark mb-4" style="font-size: 0.95rem;">Reach out to our team for assistance with your order</p>
+  <a routerLink="/contact" class="btn btn-light bg-light rounded-pill px-4 py-2 fs-6 shadow-sm border text-dark fw-bold">Contact us</a>
+</section>
