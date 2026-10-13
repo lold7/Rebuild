@@ -1,0 +1,88 @@
+name: "✨ Feature Request"
+description: "Suggest a new feature or page for the InwZa Bookstore"
+title: "[FEATURE] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+        Please describe the feature you would like to add.
+
+  - type: input
+    id: feature_name
+    attributes:
+      label: "Feature Name"
+      description: "Short name for this feature"
+      placeholder: "e.g. Add wishlist page, Improve navbar"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: "Feature Type"
+      description: "What kind of feature is this?"
+      options:
+        - New Page
+        - UI Improvement
+        - New Component
+        - Bug Fix Enhancement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Describe the feature in detail"
+      placeholder: "What should this feature do?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: "Files / Pages Involved"
+      description: "Which files need to be created or modified?"
+      placeholder: |
+        - views/webstore/wishlist.html (NEW)
+        - public/css/style.css (MODIFY)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "Priority"
+      description: "How important is this feature?"
+      options:
+        - Low — nice to have
+        - Medium — should have
+        - High — must have
+        - Critical — blocks other features
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "Acceptance Criteria"
+      description: "How do we know this feature is complete?"
+      placeholder: |
+        - [ ] Page displays correctly
+        - [ ] Responsive on mobile
+        - [ ] Passes project requirements
+    validations:
+      required: true
+
+  - type: input
+    id: assigned_to
+    attributes:
+      label: "Assigned To"
+      description: "Who will work on this?"
+      placeholder: "e.g. tsukina, jojo"
+    validations:
+      required: false

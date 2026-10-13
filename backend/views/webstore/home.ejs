@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InwZa Bookstore - Homepage</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+
+            <!-- Left: Logo on mobile (centered via CSS), Toggler on right -->
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Desktop 3-column layout -->
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <!-- Left nav links -->
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Categories</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                             <li><hr class="dropdown-divider"></li>
+                             <li><a class="dropdown-item text-primary fw-bold" href="/categories">View All Categories</a></li>
+                            </ul>
+                        </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- Center logo (desktop only) -->
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <!-- Right: search + button -->
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search">
+                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><% if (cartCount > 0) { %><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.6rem;top:-5px;right:-5px;"><%= cartCount %></span><% } %></a>
+                    <% if (user) { %>
+                    <div class="dropdown mt-2 mt-lg-0">
+                        <a class="btn btn-primary rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><%= user.username %></a>
+                        <ul class="dropdown-menu border-0 shadow">
+                            <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                            <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                            <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                            <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/auth/logout">Logout</a></li>
+                        </ul>
+                    </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+
+        </div>
+    </nav>
+
+    <section class="hero-section text-center text-white d-flex align-items-center justify-content-center m-4 rounded-4" style="background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/LogoWall.png') center/cover; min-height: 60vh;">
+        <div>
+            <h1 class="display-4 fw-bold mb-3">Find your next great read</h1>
+            <p class="lead mb-4">Discover millions of books, audiobooks, and more.</p>
+            <a href="/products" class="btn btn-primary btn-lg rounded-pill px-5 me-2">Shop</a>
+            <a href="/categories" class="btn btn-outline-light btn-lg rounded-pill px-5">Learn More</a>
+        </div>
+    </section>
+
+    <section class="container my-5 py-4 fade-in-on-scroll">
+        <div class="text-center mb-5">
+            <span class="text-muted text-uppercase small fw-bold">Trending Now</span>
+            <h2 class="fw-bold">Bestsellers</h2>
+        </div>
+        
+        <div id="bestsellerCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="2000">
+            
+            <!-- Indicators -->
+            <% const slideCount = Math.ceil(Math.min(products.length, 9) / 3); %>
+            <div class="carousel-indicators mb-0">
+                <% for (let s = 0; s < slideCount; s++) { %>
+                <button type="button" data-bs-target="#bestsellerCarousel" data-bs-slide-to="<%= s %>" class="<%= s === 0 ? 'active' : '' %> bg-dark rounded-circle" style="width: 10px; height: 10px;" <%= s === 0 ? 'aria-current="true"' : '' %>></button>
+                <% } %>
+            </div>
+
+            <div class="carousel-inner pb-5">
+                <% const featured = products.slice(0, 9); %>
+                <% for (let s = 0; s < slideCount; s++) { %>
+                <div class="carousel-item <%= s === 0 ? 'active' : '' %>">
+                    <div class="row text-center justify-content-center">
+                        <% const slideProducts = featured.slice(s * 3, s * 3 + 3); %>
+                        <% slideProducts.forEach(function(p, idx) { %>
+                        <% const imgs = typeof p.product_images === 'string' ? JSON.parse(p.product_images) : (p.product_images || []); %>
+                        <div class="col-md-3 col-6 <%= idx === 2 ? 'd-none d-md-block' : '' %> mb-3">
+                            <div class="card border-0 h-100 book-card-hover" style="cursor:pointer;" data-product-id="<%= p.product_id %>">
+                                <img src="/images/products/<%= imgs[0] %>" class="card-img-top rounded-4" alt="<%= p.product_name %>" style="height: 250px; object-fit: cover;">
+                                <div class="card-body">
+                                    <h6 class="card-title fw-bold"><%= p.product_name %></h6>
+                                    <p class="text-muted small">$<%= parseFloat(p.product_price).toFixed(2) %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <% }); %>
+                    </div>
+                </div>
+                <% } %>
+            </div>
+
+            <button class="carousel-control-prev" type="button" data-bs-target="#bestsellerCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon bg-dark rounded-circle p-3" aria-hidden="true"></span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#bestsellerCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon bg-dark rounded-circle p-3" aria-hidden="true"></span>
+            </button>
+        </div>
+    </section>
+
+    <section class="bg-light py-5 fade-in-on-scroll">
+        <div class="container text-center">
+            <span class="text-muted text-uppercase small fw-bold">Explore</span>
+            <h2 class="fw-bold mb-5">Browse by category</h2>
+            
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card border-0 text-white rounded-4 overflow-hidden category-card position-relative">
+                        <img src="https://9kafe.com/wp-content/uploads/2024/08/lord-of-the-mysteries-wn.jpg" class="w-100 h-120" style="object-fit: cover;" alt="Fiction">
+                        <div class="card-img-overlay d-flex flex-column justify-content-end" style="background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));">
+                            <h4 class="card-title fw-bold">Fiction</h4>
+                            <a href="/category/fiction" class="text-white text-decoration-none Explore-link">Explore <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 text-white rounded-4 overflow-hidden category-card position-relative">
+                        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Non-fiction">
+                        <div class="card-img-overlay d-flex flex-column justify-content-end" style="background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));">
+                            <h4 class="card-title fw-bold">Non-fiction</h4>
+                            <a href="/category/nonfiction" class="text-white text-decoration-none Explore-link">Explore <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 text-white rounded-4 overflow-hidden category-card position-relative">
+                        <img src="https://bci.kinokuniya.com/jsp/images/book-img/97861/97861659/9786165929271.JPG" class="w-100 h-100" style="object-fit: cover;" alt="Children's Books">
+                        <div class="card-img-overlay d-flex flex-column justify-content-end" style="background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));">
+                            <h4 class="card-title fw-bold">Children's Books</h4>
+                            <a href="/category/children" class="text-white text-decoration-none Explore-link">Explore <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-6 col-lg-5">
+                    <div class="card border-0 text-white rounded-4 overflow-hidden category-card position-relative">
+                        <img src="https://m.media-amazon.com/images/I/81De-qFwVmL._AC_UF1000,1000_QL80_.jpg" class="w-100 h-100" style="object-fit: cover;" alt="Mystery and Thriller">
+                        <div class="card-img-overlay d-flex flex-column justify-content-end" style="background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));">
+                            <h4 class="card-title fw-bold">Mystery and Thriller</h4>
+                            <a href="/category/mystery" class="text-white text-decoration-none Explore-link">Explore <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-5">
+                    <div class="card border-0 text-white rounded-4 overflow-hidden category-card position-relative">
+                        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Science and Tech">
+                        <div class="card-img-overlay d-flex flex-column justify-content-end" style="background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));">
+                            <h4 class="card-title fw-bold">Science and Tech</h4>
+                            <a href="/category/science" class="text-white text-decoration-none Explore-link">Explore <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container my-5 py-5 w-75 fade-in-on-scroll">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Questions</h2>
+            <p class="text-muted">Find answers to common questions about your new bookstore.</p>
+        </div>
+
+        <div class="accordion accordion-flush" id="faqAccordion">
+            <div class="accordion-item border-bottom mb-3">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        How can I track my order?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-muted">
+                        You will receive an email confirmation with a tracking number once your order has shipped.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-bottom mb-3">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        What is your return policy?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-muted">
+                        We accept returns within 30 days of purchase. The items must be in original condition.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="mb-2 fw-bold">Need more help?</p>
+            <a href="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+        </div>
+    </section>
+
+    <footer class="container py-5 border-top">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-4">
+                <h5 class="fw-bold mb-3">InwZa Bookstore</h5>
+                <p class="text-muted small">Address: Level 2, 45 King Street, Sydney NSW 2000</p>
+                <p class="text-muted small">Contact: 1800 555 123<br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a7cfc2cbcbc8e7cec9d0ddc6c5c8c8ccd4d3c8d5c289c4c8ca">[email&#160;protected]</a></p>
+                <div class="d-flex gap-3 mt-3">
+                    <a href="#" class="text-dark"><i class="bi bi-facebook"></i></a>
+                    <a href="#" class="text-dark"><i class="bi bi-twitter"></i></a>
+                    <a href="#" class="text-dark"><i class="bi bi-instagram"></i></a>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 mb-4">
+                <ul class="list-unstyled text-muted small lh-lg">
+                    <li><a href="/products" class="text-decoration-none text-muted">All products</a></li>
+                    <li><a href="/categories" class="text-decoration-none text-muted">Categories</a></li>
+                    <li><a href="/contact" class="text-decoration-none text-muted">Contact us</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md-4 mb-4">
+                <ul class="list-unstyled text-muted small lh-lg">
+                    <li><a href="/account/profile" class="text-decoration-none text-muted">Account</a></li>
+                    <li><a href="/cart" class="text-decoration-none text-muted">Cart</a></li>
+                    <li><a href="/faq" class="text-decoration-none text-muted">FAQ</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between pt-4 mt-4 border-top text-muted small">
+            <p>&copy; 2026 InwZa Bookstore. All rights reserved.</p>
+            <div class="d-flex gap-3">
+                <a href="/condition" class="text-decoration-none text-muted">Privacy policy</a>
+                <a href="/condition" class="text-decoration-none text-muted">Terms of service</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

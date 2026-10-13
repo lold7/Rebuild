@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Methods</title>
+    <meta name="description" content="Manage your saved payment options for secure and fast checkout at InwZa Bookstore.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <!-- ========== NAVBAR ========== -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Categories</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                <% categories.forEach(cat => { %>
+                                    <% const slugMap = { 'Fiction': 'fiction', 'Non-Fiction': 'nonfiction', "Children": 'children', "Mystery & Thriller": 'mystery', "Science & Technology": 'science' }; %>
+                                    <li><a class="dropdown-item" href="/category/<%= slugMap[cat.category_name] || cat.category_name.toLowerCase().replace(/[^a-z]+/g, '') %>"><%= cat.category_name %></a></li>
+                                <% }); %>
+                            <% } else { %>
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                            <% } %>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-primary fw-bold" href="/categories">View All Categories</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search">
+                        <button type="submit" class="btn position-absolute top-50 end-0 translate-middle-y border-0 p-0 me-3">
+                            <i class="bi bi-search text-muted"></i>
+                        </button>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.6rem;top:-5px;right:-5px;"><%= cartCount %></span><% } %></a>
+                    <% if (typeof user !== 'undefined' && user) { %>
+                        <div class="dropdown mt-2 mt-lg-0">
+                            <a class="btn btn-outline-dark rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-1"></i> <%= user.username %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                                <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                                <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                                <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
+                            </ul>
+                        </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== HEADER SECTION ========== -->
+    <section class="payment-hero text-center" id="payment-header">
+        <div class="container">
+            <h1>Payment methods</h1>
+            <p>Manage your saved payment options for secure and fast checkout.</p>
+            <h3 class="fw-bold mt-3">Order Total: $<span id="payment-total"><%= typeof total !== 'undefined' ? total.toFixed(2) : '0.00' %></span></h3>
+        </div>
+    </section>
+
+    <!-- ========== FEATURES LIST: SAVED CARDS ========== -->
+    <section class="saved-cards-section" id="saved-cards">
+        <div class="container text-center">
+            <span class="section-label">Cards</span>
+            <h2>Your saved cards</h2>
+            <p class="section-desc mx-auto">Manage the payment methods you've added to your account. Each card is secure and ready for checkout.</p>
+
+            <div class="payment-tabs mx-auto">
+                <a href="#" class="tab-btn active">Credit</a>
+                <a href="#" class="tab-btn">Debit</a>
+                <a href="#" class="tab-btn">Digital</a>
+                <a href="#" class="tab-btn">Bank</a>
+                <a href="#" class="tab-btn">Other</a>
+                <a href="#" class="tab-btn">All</a>
+            </div>
+
+            <!-- Card Entry -->
+            <div class="card-entry mx-auto text-start d-flex align-items-center flex-column flex-md-row gap-4">
+                <div class="card-icon d-flex align-items-center justify-content-center">
+                    <!-- Placeholder Mastercard icon shape -->
+                    <div style="display:flex;">
+                        <div style="width: 40px; height: 40px; background: #eb001b; border-radius: 50%;"></div>
+                        <div style="width: 40px; height: 40px; background: #f79e1b; border-radius: 50%; margin-left: -15px;"></div>
+                    </div>
+                </div>
+                <div class="flex-grow-1">
+                    <span class="card-brand">Visa</span> <!-- Design shows mastercard icon but some designs use text randomly -->
+                    <h4>Ending in 4242. expires 12/26. This is your default payment method.</h4>
+                    <span class="card-badge">USD</span>
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <a href="#" class="btn btn-outline-dark rounded-pill px-4 btn-sm">Remove</a>
+                        <a href="#" class="entry-link ms-2">Make default <i class="bi bi-chevron-right small"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CTA SECTION: ADD NEW METHOD ========== -->
+    <section class="payment-cta" id="cta-add-method">
+        <div class="container">
+            <div class="cta-box mx-auto text-center">
+                <h2>Add a new method</h2>
+                <p>Keep your information safe and secure with our payment processor.</p>
+                <form id="payment-form" action="/checkout/confirm" method="POST">
+                    <input type="hidden" name="address_id" value="<%= typeof address_id !== 'undefined' ? address_id : '' %>">
+                    <input type="hidden" id="payment-method-input" name="payment_method" value="Credit Card">
+                </form>
+                <div class="d-flex justify-content-center gap-2 mt-4">
+                    <button id="btn-confirm-order" class="btn btn-primary rounded-pill px-4 btn-sm">Confirm Order</button>
+                    <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" style="background:#e9ecef; border:none; color:#1a1a1a;">Save</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== SETTINGS / PREFERENCES SECTION ========== -->
+    <section class="payment-preferences" id="payment-settings">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="section-label">Settings</span>
+                <h2>Payment preferences</h2>
+                <p class="section-desc mx-auto">Control how your payment methods work and what happens at checkout.</p>
+            </div>
+
+            <div class="row g-4 justify-content-center mx-auto" style="max-width: 860px;">
+                <div class="col-md-6">
+                    <div class="preference-card">
+                        <span class="pref-label">Default</span>
+                        <h3>Set a default payment method</h3>
+                        <p>Choose which card appears first at checkout for faster ordering.</p>
+                        <a href="#" class="entry-link mt-3">Update <i class="bi bi-chevron-right small"></i></a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="preference-card">
+                        <span class="pref-label">Remove</span>
+                        <h3>Remove a payment method</h3>
+                        <p>Delete old or expired cards from your account. You'll always need one active payment method on file.</p>
+                        <a href="#" class="entry-link mt-3">Delete <i class="bi bi-chevron-right small"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FAQ SECTION ========== -->
+    <section class="payment-faq" id="faq-section">
+        <div class="container" style="max-width: 780px;">
+            <div class="text-center mb-5">
+                <h2>Questions</h2>
+                <p class="text-muted">Find everything you need to know about managing your payment methods.</p>
+            </div>
+
+            <div class="accordion accordion-flush" id="paymentFaqAccordion">
+                
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#pfaq1">
+                            Is my payment secure?
+                        </button>
+                    </h2>
+                    <div id="pfaq1" class="accordion-collapse collapse" data-bs-parent="#paymentFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            We use industry-standard encryption to protect your personal information. Your credit card details are never stored on our servers directly and are processed through secure payment providers.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#pfaq2">
+                            What payment types do you accept?
+                        </button>
+                    </h2>
+                    <div id="pfaq2" class="accordion-collapse collapse" data-bs-parent="#paymentFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            We accept all major credit and debit cards including Visa, Mastercard, and American Express. Digital wallets like Apple Pay and Google Pay are also supported for quick checkout.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#pfaq3">
+                            How do I update my payment details?
+                        </button>
+                    </h2>
+                    <div id="pfaq3" class="accordion-collapse collapse" data-bs-parent="#paymentFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Navigate to your account settings under 'Payment Methods'. You can add new cards, remove old ones, or assign a new default payment method from the options available.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#pfaq4">
+                            Can I delete a saved payment method?
+                        </button>
+                    </h2>
+                    <div id="pfaq4" class="accordion-collapse collapse" data-bs-parent="#paymentFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Yes, you can remove any payment method from your account whenever you choose. Active subscriptions linked to a removed card will require you to provide an alternative payment method to remain active.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#pfaq5">
+                            Do you save my card information?
+                        </button>
+                    </h2>
+                    <div id="pfaq5" class="accordion-collapse collapse" data-bs-parent="#paymentFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            While your details are processed securely during transactions, we do not store your actual card details on our servers. They are tokenized by our payment gateway for secure recurring charges.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="text-center mt-5 pt-3">
+                <h4 class="fw-bold mb-2">Need more help?</h4>
+                <p class="text-muted mb-3">Reach out to our team for assistance.</p>
+                <a href="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer py-5" id="site-footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="row">
+                    <div class="col-12 col-md-4 mb-4 mb-md-0">
+                        <h6>Address</h6>
+                        <p class="mb-3">Level 2, 45 King Street, Sydney NSW 2000</p>
+                        <h6>Contact</h6>
+                        <p class="mb-1"><a href="tel:18005550123">1800 555 0123</a></p>
+                        <p><a href="mailto:hello@minimalistbookstore.com">hello@minimalistbookstore.com</a></p>
+                        <div class="footer-social mt-3">
+                            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                            <a href="#" aria-label="Twitter X"><i class="bi bi-twitter-x"></i></a>
+                            <a href="#" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+                            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/products">All products</a>
+                        <a href="/categories">Categories</a>
+                        <a href="/contact">Contact us</a>
+                        <a href="#">About us</a>
+                        <a href="/account/orders">Order history</a>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/account/wishlist">Wishlist</a>
+                        <a href="/account/profile">Account</a>
+                        <a href="/cart">Cart</a>
+                        <a href="/faq">FAQ</a>
+                        <a href="/condition">Returns</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom d-flex flex-column flex-sm-row justify-content-between align-items-center">
+                <p class="mb-2 mb-sm-0">&copy; 2025 Minimalist Bookstore. All rights reserved.</p>
+                <div class="d-flex gap-3">
+                    <a href="#">Privacy policy</a>
+                    <a href="#">Terms of service</a>
+                    <a href="#">Cookie settings</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="/js/checkout.js"></script>
+</body>
+</html>

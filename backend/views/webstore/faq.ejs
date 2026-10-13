@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Already Have an Account? - InwZa Bookstore</title>
+    <meta name="description" content="Find answers to common questions about orders, shipping, returns, and your InwZa Bookstore account.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <!-- ========== NAVBAR ========== -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Categories</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-primary fw-bold" href="/categories">View All Categories</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search">
+                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><% if (cartCount > 0) { %><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.6rem;top:-5px;right:-5px;"><%= cartCount %></span><% } %></a>
+                    <% if (user) { %>
+                    <div class="dropdown mt-2 mt-lg-0">
+                        <a class="btn btn-primary rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><%= user.username %></a>
+                        <ul class="dropdown-menu border-0 shadow">
+                            <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                            <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                            <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                            <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/auth/logout">Logout</a></li>
+                        </ul>
+                    </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== HEADER SECTION ========== -->
+    <section class="container my-5 text-center" id="header-section">
+        <h1 class="display-4 fw-bold mb-3">Questions answered</h1>
+        <p class="text-muted">Find what you need or reach out to our team for additional help.</p>
+    </section>
+
+    <!-- ========== FAQ SECTION ========== -->
+    <section class="container mb-5" id="faq-section">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">FAQs</h2>
+            <p class="text-muted">Common questions about orders, shipping, returns, and your account.</p>
+        </div>
+
+        <div class="mx-auto" style="max-width: 780px;">
+            <div class="accordion accordion-flush" id="faqAccordion">
+
+                <% faqs.forEach(function(faq, index) { %>
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq-<%= faq.faq_id %>">
+                            <%= faq.question %>
+                        </button>
+                    </h2>
+                    <div id="faq-<%= faq.faq_id %>" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            <%= faq.answer %>
+                        </div>
+                    </div>
+                </div>
+                <% }); %>
+
+            </div>
+
+            <!-- Still have questions -->
+            <div class="text-center mt-5 pt-4">
+                <h3 class="fw-bold mb-2">Still have questions?</h3>
+                <p class="text-muted mb-3">Reach out to our team anytime</p>
+                <a href="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CTA SECTION ========== -->
+    <section class="container my-5" id="cta-section">
+        <div class="rounded-4 text-center text-white py-5 px-4 position-relative overflow-hidden" style="background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1200&auto=format&fit=crop') center/cover no-repeat; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <h2 class="fw-bold display-6 mb-2">Need more help or answers?</h2>
+            <p class="mb-4 opacity-75">Our team is ready to assist with any questions or concerns</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="/contact" class="btn btn-primary rounded-pill px-4">Contact</a>
+                <a href="#faq-section" class="btn btn-outline-light rounded-pill px-4">FAQ</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer py-5" id="site-footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="row">
+                    <div class="col-12 col-md-4 mb-4 mb-md-0">
+                        <h6>Address</h6>
+                        <p class="mb-3">Level 2, 45 King Street, Sydney NSW 2000</p>
+                        <h6>Contact</h6>
+                        <p class="mb-1"><a href="tel:18005550123">1800 555 0123</a></p>
+                        <p><a href="mailto:hello@minimalistbookstore.com">hello@minimalistbookstore.com</a></p>
+                        <div class="footer-social mt-3">
+                            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                            <a href="#" aria-label="Twitter X"><i class="bi bi-twitter-x"></i></a>
+                            <a href="#" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+                            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/products">All products</a>
+                        <a href="/categories">Categories</a>
+                        <a href="/contact">Contact us</a>
+                        <a href="#">About us</a>
+                        <a href="/account/orders">Order history</a>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/account/wishlist">Wishlist</a>
+                        <a href="/account/profile">Account</a>
+                        <a href="/cart">Cart</a>
+                        <a href="/faq">FAQ</a>
+                        <a href="/condition">Returns</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom d-flex flex-column flex-sm-row justify-content-between align-items-center">
+                <p class="mb-2 mb-sm-0">&copy; 2025 Minimalist Bookstore. All rights reserved.</p>
+                <div class="d-flex gap-3">
+                    <a href="/condition">Privacy policy</a>
+                    <a href="/condition">Terms of service</a>
+                    <a href="/condition">Cookie settings</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>
