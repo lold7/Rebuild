@@ -1,0 +1,32 @@
+<header class="admin-topbar bg-white border-bottom d-flex align-items-center justify-content-between px-4 sticky-top">
+  <h4 class="m-0 fw-bold">{{ title }}</h4>
+  <div class="d-flex align-items-center gap-4">
+    <div class="notification position-relative" style="cursor: pointer;">
+      <mat-icon class="text-muted" style="font-size: 1.2rem;">notifications</mat-icon>
+      <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-light rounded-circle" style="margin-top:2px; margin-left:-4px;">
+        <span class="d-block bg-primary rounded-circle" style="width:6px; height:6px;"></span>
+      </span>
+    </div>
+    @if (authService.currentUser$ | async; as user) {
+      <div class="user-profile d-flex flex-row align-items-center gap-3 border-start ps-4" [matMenuTriggerFor]="adminMenu" style="cursor: pointer;">
+        <div class="text-end d-none d-md-block">
+          <h6 class="m-0 fw-bold font-size-14">{{ user.username || 'Admin' }}</h6>
+          <small class="text-muted" style="font-size:0.75rem;">Store Manager</small>
+        </div>
+        <img [src]="user.avatar_url || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop'" [alt]="user.username || 'Admin'" class="rounded-circle" width="40" height="40" style="object-fit:cover;">
+      </div>
+      <mat-menu #adminMenu="matMenu">
+        <a mat-menu-item routerLink="/backoffice/profile">
+          <mat-icon class="me-2">person</mat-icon> Profile
+        </a>
+        <a mat-menu-item routerLink="/">
+          <mat-icon class="me-2">storefront</mat-icon> View Webstore
+        </a>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon class="me-2 text-danger">logout</mat-icon> Logout
+        </button>
+      </mat-menu>
+    }
+  </div>
+</header>
