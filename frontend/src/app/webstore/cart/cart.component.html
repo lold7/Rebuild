@@ -1,0 +1,129 @@
+<section class="container mt-5 pt-4 text-center">
+  <span class="text-muted text-uppercase small fw-bold">Cart</span>
+  <h1 class="display-5 fw-bold mb-3">Your books are waiting</h1>
+  <p class="text-muted">Review your order before checkout.</p>
+</section>
+
+<section class="container my-5 pb-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      @if (cartItems.length > 0) {
+        <div id="cart-items-container">
+          @for (item of cartItems; track item.cart_item_id) {
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 cart-item">
+              <div class="row g-0">
+                <div class="col-md-4">
+                  <img [src]="getImageUrl(item.product_images)" class="img-fluid h-100 w-100" [alt]="item.product_name" style="object-fit: cover; min-height: 250px;">
+                </div>
+                <div class="col-md-8 p-4 d-flex flex-column">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h4 class="fw-bold mb-0">{{ item.product_name }}</h4>
+                    <h5 class="fw-bold text-primary mb-0">${{ (+item.product_price).toFixed(2) }}</h5>
+                  </div>
+                  <p class="text-muted small mb-4">{{ item.author ? 'By ' + item.author : 'Manage your selections and quantities.' }}</p>
+
+                  @if (item.selected_attributes?.format) {
+                    <div class="mb-3">
+                      <label class="form-label small fw-bold text-muted mb-1">Format (Attribute)</label>
+                      <select class="form-select form-select-sm w-50 rounded-3 bg-light border-0" disabled>
+                        <option selected>{{ item.selected_attributes?.format }}</option>
+                      </select>
+                    </div>
+                  }
+
+                  <div class="mt-auto d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="d-flex align-items-center border rounded-3 bg-white overflow-hidden">
+                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="decreaseQuantity(item)">
+                          <mat-icon>remove</mat-icon>
+                        </button>
+                        <input type="number" class="form-control text-center item-qty bg-white border-0 p-0" [value]="item.quantity" min="1" readonly style="width: 45px;">
+                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="increaseQuantity(item)">
+                          <mat-icon>add</mat-icon>
+                        </button>
+                      </div>
+                      <button (click)="removeItem(item)" class="btn btn-link text-danger small text-decoration-none ms-3 p-0 border-0 bg-transparent">
+                        <mat-icon>delete_outline</mat-icon> Remove
+                      </button>
+                    </div>
+                    <div class="text-end">
+                      <span class="text-muted small">Total</span>
+                      <h5 class="fw-bold text-dark mb-0">${{ (+item.product_price * item.quantity).toFixed(2) }}</h5>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Order Summary Card -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+          <span class="text-muted text-uppercase small fw-bold text-center">Total</span>
+          <h3 class="fw-bold text-center mb-4">Order summary</h3>
+
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+            <span class="fw-bold fs-5">Subtotal</span>
+            <h2 class="fw-bold mb-0">${{ total.toFixed(2) }}</h2>
+          </div>
+
+          <ul class="list-unstyled text-muted small lh-lg mb-4">
+            <li><mat-icon class="text-success me-2">check</mat-icon> Free shipping on orders over $50</li>
+            <li><mat-icon class="text-success me-2">check</mat-icon> Secure payment checkout</li>
+            <li><mat-icon class="text-success me-2">check</mat-icon> Taxes calculated at checkout</li>
+            <li><mat-icon class="text-success me-2">check</mat-icon> Fast support team access</li>
+          </ul>
+        </div>
+
+        <!-- Checkout Action Card -->
+        <div class="card border-0 rounded-4 p-4 p-md-5 text-center" style="background-color: #f0f2f5;">
+          <h3 class="fw-bold mb-3">Ready to finish your order?</h3>
+          <p class="text-muted small mb-4">Review your selections above, make sure everything is correct, and proceed to checkout.</p>
+          <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <button (click)="proceedToCheckout()" class="btn btn-primary rounded-pill px-5 fw-bold">Proceed to checkout</button>
+            <a routerLink="/products" class="btn btn-outline-dark rounded-pill px-4 bg-white border-0 shadow-sm">Continue shopping</a>
+          </div>
+        </div>
+      } @else {
+        <!-- Empty Cart State -->
+        <div class="text-center py-5 bg-white rounded-4 shadow-sm mb-4">
+          <mat-icon class="display-1 text-muted mb-3">remove_shopping_cart</mat-icon>
+          <h3 class="fw-bold">Your cart is empty</h3>
+          <p class="text-muted">Looks like you haven't added anything to your cart yet.</p>
+          <a routerLink="/products" class="btn btn-primary rounded-pill px-4 mt-3">Continue Shopping</a>
+        </div>
+      }
+
+    </div>
+  </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="container my-5 py-5" style="max-width: 860px;">
+  <div class="text-center mb-5">
+    <h2 class="fw-bold">Questions</h2>
+    <p class="text-muted">Find answers to common questions before you complete your purchase.</p>
+  </div>
+
+  <mat-accordion class="w-100" multi="false">
+    <mat-expansion-panel class="mb-3 border rounded-3 shadow-none">
+      <mat-expansion-panel-header>
+        <mat-panel-title class="fw-bold">Can I change my order?</mat-panel-title>
+      </mat-expansion-panel-header>
+      <p class="text-muted small m-0">You can modify your cart anytime before checkout. Once the order is placed, please contact support within 24 hours.</p>
+    </mat-expansion-panel>
+
+    <mat-expansion-panel class="mb-3 border rounded-3 shadow-none">
+      <mat-expansion-panel-header>
+        <mat-panel-title class="fw-bold">What formats are available?</mat-panel-title>
+      </mat-expansion-panel-header>
+      <p class="text-muted small m-0">Most of our books come in Paperback and Hardcover formats. You can select your preference on the product page or in the cart.</p>
+    </mat-expansion-panel>
+  </mat-accordion>
+
+  <div class="text-center mt-5">
+    <p class="mb-2 fw-bold">Need more help?</p>
+    <a routerLink="/contact" class="btn btn-light border rounded-pill px-4 shadow-sm">Contact</a>
+  </div>
+</section>
