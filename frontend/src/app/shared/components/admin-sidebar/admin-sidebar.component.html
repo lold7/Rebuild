@@ -1,0 +1,50 @@
+<aside class="admin-sidebar border-end bg-white">
+  <div class="sidebar-header border-bottom">
+    <a routerLink="/backoffice" class="logo d-flex align-items-center gap-2 text-decoration-none text-dark">
+      <div class="logo-icon text-white"><mat-icon>menu_book</mat-icon></div>
+      <div>
+        <h5 class="m-0 fw-bold fs-6">BookStore</h5>
+        <small class="text-muted" style="font-size: 0.72rem;">Admin Panel</small>
+      </div>
+    </a>
+  </div>
+  <div class="sidebar-nav mt-4">
+    <ul class="nav flex-column gap-1 px-3 list-unstyled">
+      <li class="nav-item">
+        <a routerLink="/backoffice" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">
+          <mat-icon>dashboard</mat-icon> Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/backoffice/categories" routerLinkActive="active" class="nav-link">
+          <mat-icon>category</mat-icon> Category
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/backoffice/products" routerLinkActive="active" class="nav-link">
+          <mat-icon>assignment_turned_in</mat-icon> Product
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/backoffice/inventory" routerLinkActive="active" class="nav-link">
+          <mat-icon>inventory_2</mat-icon> Inventory
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/backoffice/orders" routerLinkActive="active" class="nav-link">
+          <mat-icon>receipt_long</mat-icon> Orders
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/backoffice/customers" routerLinkActive="active" class="nav-link">
+          <mat-icon>group</mat-icon> Customers
+        </a>
+      </li>
+      <li class="nav-item mt-3 pt-3 border-top">
+        <a routerLink="/" class="nav-link text-muted">
+          <mat-icon>storefront</mat-icon> View Webstore
+        </a>
+      </li>
+    </ul>
+  </div>
+</aside>
