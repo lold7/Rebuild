@@ -1,0 +1,86 @@
+name: "🐛 Bug Report"
+description: "Report a bug or issue found in the InwZa Bookstore"
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+        Thank you for reporting a bug. Please fill in the details below.
+
+  - type: input
+    id: page
+    attributes:
+      label: "Page / File"
+      description: "Which page or file is affected?"
+      placeholder: "e.g. index.html, cart.html, style.css"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description"
+      description: "Describe the bug clearly"
+      placeholder: "What went wrong?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Step-by-step how to reproduce"
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+      description: "What should happen instead?"
+      placeholder: "It should display..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: "Browser"
+      description: "Which browser did you test on?"
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: "Severity"
+      description: "How critical is this bug?"
+      options:
+        - Low — cosmetic issue
+        - Medium — feature partially broken
+        - High — feature completely broken
+        - Critical — blocks other work
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "Add screenshots if applicable (drag & drop)"
+      placeholder: "Paste or drag images here"
+    validations:
+      required: false
