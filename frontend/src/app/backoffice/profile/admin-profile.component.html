@@ -1,0 +1,131 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Profile Settings"></app-admin-topbar>
+
+    <!-- Breadcrumb Navigation -->
+    <div class="px-5 pt-4 pb-2">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb m-0 font-size-14">
+          <li class="breadcrumb-item"><a routerLink="/backoffice" class="text-decoration-none text-muted">Home</a></li>
+          <li class="breadcrumb-item active text-dark fw-medium" aria-current="page">Profile Settings</li>
+        </ol>
+      </nav>
+    </div>
+
+    <div class="px-5 pb-5 pt-3" style="max-width: 1200px;">
+      @if (errorMessage) {
+        <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+      }
+      @if (successMessage) {
+        <div class="alert alert-success mb-4">{{ successMessage }}</div>
+      }
+
+      <!-- Profile Header Card -->
+      <div class="admin-card p-4 d-flex flex-column flex-md-row align-items-center justify-content-between gap-4 mb-4 shadow-sm border bg-white rounded-3">
+        <div class="d-flex flex-column flex-md-row align-items-center gap-4 text-center text-md-start">
+          <!-- Avatar -->
+          <div class="profile-avatar-wrapper position-relative">
+            <img [src]="currentUser?.avatar_url || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop'" [alt]="currentUser?.username || 'Admin'" class="rounded-circle" width="100" height="100" style="object-fit: cover;">
+          </div>
+
+          <!-- Details -->
+          <div>
+            <h3 class="fw-bold mb-1">{{ currentUser?.username || 'Admin' }}</h3>
+            <p class="text-primary font-size-14 fw-medium mb-2">Store Admin</p>
+            <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-3 text-muted font-size-14">
+              <span><mat-icon class="me-1">email</mat-icon> {{ currentUser?.email }}</span>
+              <span><mat-icon class="me-1">calendar_today</mat-icon> Member</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <a routerLink="/" class="btn btn-white border px-4 py-2 fw-medium text-dark bg-white shadow-sm font-size-14">View Public Store</a>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- Left Column: Personal Information -->
+        <div class="col-lg-8">
+          <div class="admin-card p-4 shadow-sm border bg-white rounded-3 h-100">
+            <h5 class="fw-bold mb-4 font-size-16">Personal Information</h5>
+
+            <form [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
+              <div class="row g-3 mb-4">
+                <div class="col-sm-6">
+                  <label class="form-label text-muted font-size-14 mb-1">Username</label>
+                  <input type="text" formControlName="username" class="form-control text-dark py-2" required>
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label text-muted font-size-14 mb-1">Phone Number</label>
+                  <input type="text" formControlName="phone" class="form-control text-dark py-2">
+                </div>
+              </div>
+
+              <div class="row g-3 mb-4">
+                <div class="col-sm-12">
+                  <label class="form-label text-muted font-size-14 mb-1">Email Address</label>
+                  <input type="email" formControlName="email" class="form-control text-dark py-2" required>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-end mt-4">
+                <button type="submit" [disabled]="profileForm.invalid" class="btn btn-primary px-4 py-2 fw-medium shadow-sm">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right Column: Security & Notifications -->
+        <div class="col-lg-4">
+          <div class="d-flex flex-column gap-4 h-100">
+            <!-- Security Card -->
+            <div class="admin-card p-4 shadow-sm border bg-white rounded-3">
+              <h5 class="fw-bold mb-4 font-size-16">Security</h5>
+
+              <form [formGroup]="passwordForm" (ngSubmit)="onChangePassword()">
+                <div class="mb-3">
+                  <label class="form-label text-muted font-size-14 mb-1">Current Password</label>
+                  <input type="password" formControlName="current_password" class="form-control text-dark py-2" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label text-muted font-size-14 mb-1">New Password</label>
+                  <input type="password" formControlName="new_password" class="form-control text-dark py-2" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label text-muted font-size-14 mb-1">Confirm New Password</label>
+                  <input type="password" formControlName="confirm_password" class="form-control text-dark py-2" required>
+                </div>
+                <div class="d-flex justify-content-end">
+                  <button type="submit" [disabled]="passwordForm.invalid" class="btn btn-outline-primary px-4 py-2 fw-medium font-size-14">Change Password</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Notifications Card -->
+            <div class="admin-card p-4 shadow-sm border bg-white rounded-3 flex-grow-1">
+              <h5 class="fw-bold mb-4 font-size-16">Notifications</h5>
+
+              <div class="d-flex flex-column gap-3">
+                <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                  <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkOrder" checked>
+                  <label class="form-check-label text-dark font-size-14" for="checkOrder">Order updates</label>
+                </div>
+                <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                  <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkInventory" checked>
+                  <label class="form-check-label text-dark font-size-14" for="checkInventory">Inventory alerts</label>
+                </div>
+                <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                  <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkMarketing">
+                  <label class="form-check-label text-dark font-size-14" for="checkMarketing">Marketing emails</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
