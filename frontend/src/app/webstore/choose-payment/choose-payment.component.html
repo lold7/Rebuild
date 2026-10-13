@@ -1,0 +1,126 @@
+<section class="payment-hero text-center" id="payment-header">
+  <div class="container">
+    <h1>Payment methods</h1>
+    <p>Manage your saved payment options for secure and fast checkout.</p>
+    <h3 class="fw-bold mt-3">Order Total: <span class="text-primary">${{ total.toFixed(2) }}</span></h3>
+  </div>
+</section>
+
+<!-- Saved Cards Section -->
+<section class="saved-cards-section" id="saved-cards">
+  <div class="container text-center">
+    <span class="section-label">Cards</span>
+    <h2>Your saved cards</h2>
+    <p class="section-desc mx-auto">Manage the payment methods you've added to your account. Each card is secure and ready for checkout.</p>
+
+    <div class="payment-tabs mx-auto">
+      @for (tab of tabs; track tab) {
+        <button type="button" (click)="selectTab(tab)" class="tab-btn border-0 bg-transparent" [class.active]="activeTab === tab">{{ tab }}</button>
+      }
+    </div>
+
+    <!-- Card Entry -->
+    <div class="card-entry mx-auto text-start d-flex align-items-center flex-column flex-md-row gap-4">
+      <div class="card-icon d-flex align-items-center justify-content-center">
+        <div style="display:flex;">
+          <div style="width: 40px; height: 40px; background: #eb001b; border-radius: 50%;"></div>
+          <div style="width: 40px; height: 40px; background: #f79e1b; border-radius: 50%; margin-left: -15px;"></div>
+        </div>
+      </div>
+      <div class="flex-grow-1">
+        <span class="card-brand">{{ selectedMethod }}</span>
+        <h4>Ending in 4242. expires 12/26. This is your default payment method.</h4>
+        <span class="card-badge">USD</span>
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+          <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" type="button">Remove</button>
+          <span class="entry-link ms-2" style="cursor: pointer;">Make default <mat-icon class="small">chevron_right</mat-icon></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Confirm Order CTA -->
+<section class="payment-cta" id="cta-add-method">
+  <div class="container">
+    <div class="cta-box mx-auto text-center">
+      <h2>Add a new method</h2>
+      <p>Keep your information safe and secure with our payment processor.</p>
+      <div class="d-flex justify-content-center gap-2 mt-4">
+        <button (click)="confirmOrder()" [disabled]="isSubmitting" class="btn btn-primary rounded-pill px-5 fw-bold">
+          {{ isSubmitting ? 'Processing...' : 'Confirm Order' }}
+        </button>
+        <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" style="background:#e9ecef; border:none; color:#1a1a1a;">Save</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Payment Preferences -->
+<section class="payment-preferences" id="payment-settings">
+  <div class="container">
+    <div class="text-center mb-5">
+      <span class="section-label">Settings</span>
+      <h2>Payment preferences</h2>
+      <p class="section-desc mx-auto">Control how your payment methods work and what happens at checkout.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center mx-auto" style="max-width: 860px;">
+      <div class="col-md-6">
+        <div class="preference-card">
+          <span class="pref-label">Default</span>
+          <h3>Set a default payment method</h3>
+          <p>Choose which card appears first at checkout for faster ordering.</p>
+          <span class="entry-link mt-3" style="cursor: pointer;">Update <mat-icon class="small">chevron_right</mat-icon></span>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="preference-card">
+          <span class="pref-label">Remove</span>
+          <h3>Remove a payment method</h3>
+          <p>Delete old or expired cards from your account. You'll always need one active payment method on file.</p>
+          <span class="entry-link mt-3" style="cursor: pointer;">Delete <mat-icon class="small">chevron_right</mat-icon></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Payment FAQ Section -->
+<section class="payment-faq" id="faq-section">
+  <div class="container" style="max-width: 780px;">
+    <div class="text-center mb-5">
+      <h2>Questions</h2>
+      <p class="text-muted">Find everything you need to know about managing your payment methods.</p>
+    </div>
+
+    <mat-accordion multi="false">
+      <mat-expansion-panel class="mb-3 border rounded-3 shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Is my payment secure?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted m-0">We use industry-standard encryption to protect your personal information. Your credit card details are never stored on our servers directly and are processed through secure payment providers.</p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border rounded-3 shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">What payment types do you accept?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted m-0">We accept all major credit and debit cards including Visa, Mastercard, and American Express. Digital wallets like Apple Pay and Google Pay are also supported for quick checkout.</p>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel class="mb-3 border rounded-3 shadow-none">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="fw-bold">Do you save my card information?</mat-panel-title>
+        </mat-expansion-panel-header>
+        <p class="text-muted m-0">While your details are processed securely during transactions, we do not store your actual card details on our servers. They are tokenized by our payment gateway for secure recurring charges.</p>
+      </mat-expansion-panel>
+    </mat-accordion>
+
+    <div class="text-center mt-5 pt-3">
+      <h4 class="fw-bold mb-2">Need more help?</h4>
+      <p class="text-muted mb-3">Reach out to our team for assistance.</p>
+      <a routerLink="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+    </div>
+  </div>
+</section>
