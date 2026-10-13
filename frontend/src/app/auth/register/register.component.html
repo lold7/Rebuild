@@ -1,0 +1,91 @@
+<section class="container mt-5 pt-5 text-center">
+  <h1 class="display-5 fw-bold mb-3">Create your account</h1>
+  <p class="text-muted">Join our community and discover your next favorite book with ease.</p>
+</section>
+
+<section class="container my-5 py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="row g-5">
+        <div class="col-md-5">
+          <h2 class="fw-bold">Create account</h2>
+          <p class="text-muted small">Fill in your details below to get started.</p>
+        </div>
+        <div class="col-md-7">
+          <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" id="register-form">
+            @if (errorMessage) {
+              <div class="alert alert-danger">{{ errorMessage }}</div>
+            }
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">First name</label>
+                <input type="text" id="reg-firstname" formControlName="username" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Last name</label>
+                <input type="text" id="reg-lastname" formControlName="phone" class="form-control bg-light border-0 rounded-3 py-2">
+              </div>
+            </div>
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Email</label>
+                <input type="email" id="reg-email" formControlName="email" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Password</label>
+                <input type="password" id="reg-password" formControlName="password" class="form-control bg-light border-0 rounded-3 py-2" required>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label fw-bold small mb-3">How do you read?</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="readPrint">
+                    <label class="form-check-label text-muted small" for="readPrint">Print books</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="readDigital">
+                    <label class="form-check-label text-muted small" for="readDigital">Digital books</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="readAudio">
+                    <label class="form-check-label text-muted small" for="readAudio">Audio books</label>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="readOther">
+                    <label class="form-check-label text-muted small" for="readOther">Other</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" [disabled]="registerForm.invalid || isLoading" class="btn btn-primary rounded-pill py-2 fw-bold w-25 mt-2">
+              {{ isLoading ? 'Submitting...' : 'Submit' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container my-5 pb-5">
+  <div class="card border-0 rounded-4 text-center py-5" style="background-color: #a9a9a9;">
+    <div class="card-body py-4">
+      <h2 class="fw-bold text-white mb-3">Already reading with us?</h2>
+      <p class="text-white mb-4">Sign in to your account to pick up where you left off.</p>
+      <div class="d-flex justify-content-center gap-3">
+        <a routerLink="/auth/login" class="btn btn-primary rounded-pill px-5 fw-bold border-white">Log in</a>
+        <a routerLink="/" class="btn btn-secondary rounded-pill px-4 text-white border-0" style="background-color: rgba(255,255,255,0.2);">Back</a>
+      </div>
+    </div>
+  </div>
+</section>
