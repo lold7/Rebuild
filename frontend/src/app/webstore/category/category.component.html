@@ -1,0 +1,93 @@
+<section class="container mt-5 pt-5 text-center">
+  <h1 class="display-4 fw-bold mb-3">{{ config.title || category?.category_name }}</h1>
+  <p class="text-muted">{{ config.subtitle || 'Explore our curated collection of books.' }}</p>
+</section>
+
+<!-- Curated Recommend Books -->
+<section class="container my-5 py-4">
+  <div class="text-center mb-5">
+    <span class="text-muted text-uppercase small fw-bold">Curated</span>
+    <h2 class="fw-bold">Recommend Books</h2>
+    <p class="text-muted small">Discover the best in {{ category?.category_name || 'this category' }} today.</p>
+  </div>
+
+  <div class="row g-4 justify-content-center">
+    @for (pick of config.featuredPicks; track pick.title) {
+      <div class="col-md-4">
+        <div class="card border-0 bg-light rounded-4 p-3 d-flex flex-row align-items-center h-100 feature-mini-card">
+          <img [src]="pick.image" class="rounded-3" [alt]="pick.title" style="width: 100px; height: 100px; object-fit: cover;">
+          <div class="ms-3">
+            <span class="text-muted small fw-bold">{{ pick.label }}</span>
+            <h6 class="fw-bold mb-1">{{ pick.title }}</h6>
+            <span class="text-dark small text-decoration-none fw-bold" style="cursor: pointer;">View <mat-icon>chevron_right</mat-icon></span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- Featured Highlight Book Banner -->
+<section class="container my-5">
+  <div class="text-center mb-4">
+    <span class="text-muted text-uppercase small fw-bold">Featured</span>
+    <h2 class="fw-bold">Books</h2>
+    <p class="text-muted small">Our highlight pick of the month.</p>
+  </div>
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-light">
+    <div class="row g-0 align-items-center">
+      <div class="col-md-7">
+        <img [src]="config.highlightImage" class="img-fluid w-100" [alt]="config.highlightTitle" style="object-fit: cover; height: 480px;">
+      </div>
+      <div class="col-md-5 p-5">
+        <span class="badge bg-dark text-white mb-2">{{ config.highlightBadge }}</span>
+        <h2 class="fw-bold mb-3">{{ config.highlightTitle }}</h2>
+        <p class="text-muted mb-4">{{ config.highlightDesc }}</p>
+        <button (click)="goToProduct(config.highlightProductId || (products[0] ? products[0].product_id : 1))" class="btn btn-primary rounded-pill px-4 me-2">Details</button>
+        <button (click)="addToCart(config.highlightProductId || (products[0] ? products[0].product_id : 1))" class="btn btn-outline-dark rounded-pill px-4">Add to cart</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Collection Grid -->
+<section class="bg-light-blue py-5 mt-5">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <span class="text-muted text-uppercase small fw-bold">Collection</span>
+      <h2 class="fw-bold">Books</h2>
+      <p class="text-muted small">Dive into our collection of the best {{ category?.category_name }}.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center" id="book-collection">
+      @for (product of products; track product.product_id) {
+        <div class="col-lg-3 col-md-4 col-sm-6">
+          <div class="card border-0 h-100 bg-transparent text-center book-card-hover" (click)="goToProduct(product.product_id)" style="cursor:pointer;">
+            <img [src]="getImageUrl(product.product_images)" class="card-img-top rounded-4 shadow-sm mb-3" [alt]="product.product_name" style="height: 320px; object-fit: cover;">
+            <h6 class="fw-bold mb-1">{{ product.product_name }}</h6>
+            <p class="text-muted small mb-1">{{ product.author || 'Unknown Author' }}</p>
+            <p class="fw-bold">${{ (+product.product_price).toFixed(2) }}</p>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="text-center mt-5">
+      <a routerLink="/products" class="btn btn-light bg-white border rounded-pill px-4 fw-bold shadow-sm">View all books</a>
+    </div>
+  </div>
+</section>
+
+<!-- Call to action Banner -->
+<section class="container my-5 pb-5">
+  <div class="card border-0 rounded-4 overflow-hidden text-center text-white d-flex align-items-center justify-content-center py-5" style="background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1600&auto=format&fit=crop') center/cover; min-height: 200px;">
+    <div class="position-relative z-1">
+      <h2 class="fw-bold mb-3">Discover stories that endure</h2>
+      <p class="mb-4">Find your next great read with our special offers.</p>
+      <div class="d-flex justify-content-center gap-3">
+        <a routerLink="/auth/login" class="btn btn-primary rounded-pill px-4">Sign in</a>
+        <a routerLink="/products" class="btn btn-outline-light rounded-pill px-4 text-white border-white">Shop now</a>
+      </div>
+    </div>
+  </div>
+</section>

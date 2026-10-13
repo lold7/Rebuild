@@ -1,0 +1,21 @@
+.bg-light-blue {
+  background-color: #f0f4f8;
+}
+
+.feature-mini-card {
+  transition: transform 0.2s;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
+  }
+}
+
+.book-card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+  }
+}
