@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory</title>
+    <meta name="description" content="Add a new book to the bookstore inventory">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="admin-sidebar border-end bg-white">
+            <div class="sidebar-header border-bottom">
+                <div class="logo d-flex align-items-center gap-2">
+                    <div class="logo-icon bg-primary text-white rounded p-1"><i class="bi bi-book-half"></i></div>
+                    <div>
+                        <h5 class="m-0 fw-bold fs-6">BookStore</h5>
+                        <small class="text-muted" style="font-size: 0.72rem;">Admin Panel</small>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-nav mt-4">
+                <ul class="nav flex-column gap-1 px-3">
+                    <li class="nav-item">
+                        <a href="/backoffice" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/categories" class="nav-link"><i class="bi bi-diagram-3"></i> Category</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/products" class="nav-link"><i class="bi bi-journal-check"></i> Product</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/inventory" class="nav-link active"><i class="bi bi-box-seam"></i> Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/orders" class="nav-link"><i class="bi bi-receipt"></i> Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/customers" class="nav-link"><i class="bi bi-people"></i> Customers</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="admin-main">
+            <!-- Top Navbar (Clean version as per screenshot) -->
+            <header class="admin-topbar bg-white border-bottom d-flex align-items-center justify-content-between px-4 sticky-top">
+                <h4 class="m-0 fw-bold">Inventory</h4>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="notification position-relative" style="cursor: pointer;">
+                        <i class="bi bi-bell text-muted" style="font-size: 1.2rem;"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-light rounded-circle" style="margin-top:2px; margin-left:-4px;">
+                            <span class="d-block bg-primary rounded-circle" style="width:6px; height:6px;"></span>
+                        </span>
+                    </div>
+                    <div class="user-profile d-flex flex-row align-items-center gap-3 border-start ps-4" style="cursor: pointer;">
+                        <div class="text-end d-none d-md-block">
+                            <h6 class="m-0 fw-bold font-size-14"><%= typeof user !== 'undefined' && user ? user.username : 'Admin' %></h6>
+                            <small class="text-muted" style="font-size:0.75rem;">Store Manager</small>
+                        </div>
+                        <img src="<%= typeof user !== 'undefined' && user && user.avatar_url ? user.avatar_url : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop' %>" alt="<%= typeof user !== 'undefined' && user ? user.username : 'Admin' %>" class="rounded-circle" width="40" height="40" style="object-fit:cover;">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="p-4" style="max-width: 1400px;">
+                
+                <!-- Page Header & Actions -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+                    <div>
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb mb-1 font-size-14">
+                                <li class="breadcrumb-item"><a href="/backoffice/inventory" class="text-decoration-none text-muted">Inventory</a></li>
+                                <li class="breadcrumb-item active text-muted" aria-current="page"><%= typeof product !== 'undefined' && product ? 'Edit' : 'Add New' %></li>
+                            </ol>
+                        </nav>
+                        <h2 class="fw-bold mb-1 page-title"><%= typeof product !== 'undefined' && product ? 'Edit Product' : 'Add New Product' %></h2>
+                        <p class="text-muted m-0 font-size-14"><%= typeof product !== 'undefined' && product ? 'Update the details of this product.' : 'Fill in the details to add a new book to the inventory.' %></p>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <a href="/backoffice/products" class="btn btn-white border rounded-3 fw-medium px-4 bg-white text-muted shadow-sm">
+                            Cancel
+                        </a>
+                        <button type="submit" form="productForm" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
+                            <i class="bi bi-check-lg"></i> <%= typeof product !== 'undefined' && product ? 'Update Product' : 'Publish Product' %>
+                        </button>
+                    </div>
+                </div>
+
+                <%
+                    var editProduct = typeof product !== 'undefined' && product ? product : null;
+                    var formAction = editProduct ? '/backoffice/inventory/edit/' + editProduct.product_id : '/backoffice/inventory/add';
+                    var pName = editProduct ? editProduct.product_name : '';
+                    var pDesc = editProduct ? (editProduct.product_description || '') : '';
+                    var pPrice = editProduct ? Number(editProduct.product_price).toFixed(2) : '';
+                    var pCatId = editProduct ? editProduct.category_id : '';
+                    var pImages = [];
+                    if (editProduct && editProduct.product_images) {
+                        if (typeof editProduct.product_images === 'string') {
+                            try { pImages = JSON.parse(editProduct.product_images); } catch(e) { pImages = [editProduct.product_images]; }
+                        } else if (Array.isArray(editProduct.product_images)) {
+                            pImages = editProduct.product_images;
+                        }
+                    }
+                    var pAttrs = {};
+                    if (editProduct && editProduct.product_attributes) {
+                        pAttrs = typeof editProduct.product_attributes === 'string' ? JSON.parse(editProduct.product_attributes) : editProduct.product_attributes;
+                    }
+                    var pFormat = pAttrs && pAttrs.format ? (Array.isArray(pAttrs.format) ? pAttrs.format[0] : pAttrs.format) : '';
+                %>
+
+                <!-- Form Layout -->
+                <form id="productForm" action="<%= formAction %>" method="POST" enctype="multipart/form-data">
+                <div class="row g-4">
+                    <!-- Left Column (Main Form) -->
+                    <div class="col-lg-8">
+
+                        <!-- General Information Card -->
+                        <div class="form-card">
+                            <h5>General Information</h5>
+
+                            <div class="mb-4">
+                                <label class="form-label">Product Name</label>
+                                <input type="text" name="product_name" class="form-control" placeholder="e.g. The Great Gatsby" value="<%= pName %>" required>
+                            </div>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label class="form-label">Author</label>
+                                    <input type="text" name="author" class="form-control" placeholder="Author Name" value="<%= pAttrs && pAttrs.author ? pAttrs.author : '' %>">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">ISBN</label>
+                                    <input type="text" name="isbn" class="form-control" placeholder="978-3-16-148410-0" value="<%= pAttrs && pAttrs.isbn ? pAttrs.isbn : '' %>">
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">Description</label>
+                                <div class="editor-toolbar">
+                                    <button type="button" aria-label="Bold"><i class="bi bi-type-bold"></i></button>
+                                    <button type="button" aria-label="Italic"><i class="bi bi-type-italic"></i></button>
+                                    <button type="button" aria-label="Underline"><i class="bi bi-type-underline"></i></button>
+                                    <button type="button" aria-label="List" class="ms-3"><i class="bi bi-list-ul"></i></button>
+                                    <button type="button" aria-label="Link"><i class="bi bi-link-45deg"></i></button>
+                                </div>
+                                <textarea name="product_description" class="form-control editor-textarea" placeholder="Write a detailed description of the book..."><%= pDesc %></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pricing & Inventory Card -->
+                        <div class="form-card">
+                            <h5>Pricing & Inventory</h5>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label class="form-label">Base Price</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text border-end-0 fw-medium bg-light px-3">$</span>
+                                        <input type="text" name="product_price" class="form-control border-start-0 ps-0" placeholder="0.00" value="<%= pPrice %>" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Discount Percentage</label>
+                                    <div class="input-group">
+                                        <input type="text" name="discount" class="form-control border-end-0" placeholder="0" value="<%= pAttrs && pAttrs.discount ? pAttrs.discount : '' %>">
+                                        <span class="input-group-text border-start-0 fw-medium bg-light px-3">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label class="form-label">SKU</label>
+                                    <input type="text" name="sku" class="form-control" placeholder="#SKU-0000" value="<%= pAttrs && pAttrs.sku ? pAttrs.sku : '' %>">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Stock Quantity</label>
+                                    <input type="text" name="stock" class="form-control" placeholder="0" value="<%= pAttrs && pAttrs.stock ? pAttrs.stock : '' %>">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column (Sidebar) -->
+                    <div class="col-lg-4">
+
+                        <!-- Product Images Card -->
+                        <div class="form-card">
+                            <h5>Product Images</h5>
+
+                            <div class="dropzone mb-3">
+                                <div class="icon-circle">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                </div>
+                                <div class="fw-bold mb-1 text-dark">Click to upload or drag and drop</div>
+                                <div class="small text-muted font-size-12">SVG, PNG, JPG or GIF (max. 3MB)</div>
+                                <input type="file" name="product_images" multiple accept="image/*" class="form-control mt-2">
+                            </div>
+
+                            <% if (pImages.length > 0) { %>
+                            <% pImages.forEach(function(img) { %>
+                            <div class="uploaded-file">
+                                <img src="/images/products/<%= img %>" width="36" height="48" alt="Book cover thumbnail" style="object-fit:cover;">
+                                <div class="file-details">
+                                    <div class="fw-semibold font-size-14 text-dark text-truncate" style="max-width: 150px;"><%= img %></div>
+                                    <div class="text-muted font-size-12">Existing image</div>
+                                </div>
+                            </div>
+                            <% }); %>
+                            <% } %>
+                        </div>
+
+                        <!-- Organization Card -->
+                        <div class="form-card">
+                            <h5>Organization</h5>
+
+                            <div class="mb-4">
+                                <label class="form-label">Category</label>
+                                <select name="category_id" class="form-select text-dark fw-medium" required>
+                                    <option value="">Select Category</option>
+                                    <% if (typeof categories !== 'undefined' && categories) { %>
+                                    <% categories.forEach(function(cat) { %>
+                                    <option value="<%= cat.category_id %>" <%= pCatId == cat.category_id ? 'selected' : '' %>><%= cat.category_name %></option>
+                                    <% }); %>
+                                    <% } %>
+                                </select>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Format</label>
+                                <select name="format" class="form-select text-dark fw-medium">
+                                    <option value="Hardcover" <%= pFormat === 'Hardcover' ? 'selected' : '' %>>Hardcover</option>
+                                    <option value="Paperback" <%= pFormat === 'Paperback' ? 'selected' : '' %>>Paperback</option>
+                                    <option value="E-book" <%= pFormat === 'E-book' ? 'selected' : '' %>>E-book</option>
+                                    <option value="Audiobook" <%= pFormat === 'Audiobook' ? 'selected' : '' %>>Audiobook</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">Tags</label>
+                                <div class="tags-input-container">
+                                    <input type="text" name="tags" placeholder="Add tags (comma separated)..." value="<%= pAttrs && pAttrs.tags ? (Array.isArray(pAttrs.tags) ? pAttrs.tags.join(', ') : pAttrs.tags) : '' %>">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                </form>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/backoffice.js"></script>
+</body>
+</html>

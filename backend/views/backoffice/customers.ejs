@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management</title>
+    <meta name="description" content="Manage your customer database and view history.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="background-color: var(--admin-bg);">
+    <div class="admin-layout">
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="admin-sidebar border-end bg-white">
+            <div class="sidebar-header border-bottom">
+                <div class="logo d-flex align-items-center gap-2">
+                    <div class="logo-icon text-white"><i class="bi bi-book-half"></i></div>
+                    <div>
+                        <h5 class="m-0 fw-bold fs-6">BookStore</h5>
+                        <small class="text-muted" style="font-size: 0.72rem;">Admin Console</small>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-nav mt-4">
+                <ul class="nav flex-column gap-1 px-3">
+                    <li class="nav-item">
+                        <a href="/backoffice" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/categories" class="nav-link"><i class="bi bi-diagram-3"></i> Category</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/products" class="nav-link"><i class="bi bi-journal-check"></i> Product</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/inventory" class="nav-link"><i class="bi bi-box-seam"></i> Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/orders" class="nav-link"><i class="bi bi-receipt-cutoff"></i> Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/customers" class="nav-link active"><i class="bi bi-people"></i> Customers</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="admin-main">
+            <!-- Top Navbar -->
+            <header class="admin-topbar bg-white border-bottom d-flex align-items-center justify-content-between px-4 sticky-top">
+                <h4 class="m-0 fw-bold">Customers</h4>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="notification position-relative" style="cursor: pointer;">
+                        <i class="bi bi-bell text-muted" style="font-size: 1.2rem;"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-light rounded-circle" style="margin-top:2px; margin-left:-4px;">
+                            <span class="d-block bg-primary rounded-circle" style="width:6px; height:6px;"></span>
+                        </span>
+                    </div>
+                    <div class="user-profile d-flex flex-row align-items-center gap-3 border-start ps-4" style="cursor: pointer;">
+                        <div class="text-end d-none d-md-block">
+                            <h6 class="m-0 fw-bold font-size-14"><%= typeof user !== 'undefined' && user ? user.username : 'Admin' %></h6>
+                            <small class="text-muted" style="font-size:0.75rem;">Store Manager</small>
+                        </div>
+                        <img src="<%= typeof user !== 'undefined' && user && user.avatar_url ? user.avatar_url : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop' %>" alt="<%= typeof user !== 'undefined' && user ? user.username : 'Admin' %>" class="rounded-circle" width="40" height="40" style="object-fit:cover;">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Header Area -->
+            <div class="px-5 pt-5 pb-1">
+                <h2 class="m-0 fw-bold fs-3">Customer Management</h2>
+                <p class="text-muted m-0 font-size-14 mt-1">Manage your customer database and view history.</p>
+            </div>
+
+            <!-- Table Container Area -->
+            <div class="p-5" style="max-width: 1300px;">
+                <div class="admin-card p-0 overflow-hidden border-0 shadow-sm rounded-4">
+                    
+                    <!-- Table Actions Toolbar -->
+                    <div class="table-toolbar d-flex flex-wrap gap-3 justify-content-between align-items-center bg-white">
+                        <div class="search-bar position-relative" style="min-width: 350px; flex-grow: 1; max-width: 500px;">
+                            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-muted"></i>
+                            <input type="text" class="form-control ps-5 py-2 text-dark" placeholder="Search customers by name or email...">
+                        </div>
+                        <div class="d-flex gap-3">
+                            <button class="btn btn-white border px-4 py-2 d-flex align-items-center gap-2 fw-medium text-dark bg-white shadow-sm">
+                                <i class="bi bi-filter"></i> Filter
+                            </button>
+                            <button class="btn btn-primary px-4 py-2 d-flex align-items-center gap-2 fw-medium shadow-sm">
+                                <i class="bi bi-plus-lg"></i> Add Customer
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Customer Table -->
+                    <div class="table-responsive">
+                        <table class="table admin-table mb-0 align-middle table-hover">
+                            <thead class="bg-white text-muted border-bottom">
+                                <tr>
+                                    <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Customer</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Email</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Orders</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Total Spent</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Status</th>
+                                    <th class="text-end pe-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                                <% if (typeof customers !== 'undefined' && customers && customers.length > 0) { %>
+                                <% customers.forEach(function(customer) { %>
+                                <%
+                                    var initials = customer.username ? customer.username.split(' ').map(function(w) { return w.charAt(0).toUpperCase(); }).join('').substring(0, 2) : '??';
+                                    var joinDate = customer.created_at ? new Date(customer.created_at) : new Date();
+                                    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                                    var sinceText = 'Since ' + monthNames[joinDate.getMonth()] + ' ' + joinDate.getFullYear();
+                                %>
+                                <tr>
+                                    <td class="ps-4 py-3 border-bottom">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="customer-avatar bg-jd text-primary fw-bold"><%= initials %></div>
+                                            <div>
+                                                <h6 class="m-0 fw-semibold font-size-14 text-dark mb-1"><%= customer.username %></h6>
+                                                <small class="text-muted font-size-12"><%= sinceText %></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-secondary font-size-14 border-bottom"><%= customer.email %></td>
+                                    <td class="text-dark font-size-14 border-bottom"><%= customer.order_count || 0 %></td>
+                                    <td class="text-dark font-size-14 fw-medium border-bottom">$<%= customer.total_spent ? Number(customer.total_spent).toFixed(2) : '0.00' %></td>
+                                    <td class="border-bottom"><span class="badge bg-success-subtle text-success rounded-pill px-3 py-1 fw-normal border border-success-subtle">Active</span></td>
+                                    <td class="text-end pe-4 border-bottom">
+                                        <button class="btn-icon-dots fs-5"><i class="bi bi-three-dots-vertical"></i></button>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                                <% } else { %>
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">No customers found.</td>
+                                </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination Footer -->
+                    <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
+                        <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong><%= typeof customers !== 'undefined' && customers ? customers.length : 0 %></strong> results</span>
+                        <ul class="admin-pagination pagination m-0 gap-1 d-flex align-items-center">
+                            <li class="page-item"><a class="page-link border bg-white text-muted shadow-sm rounded px-2 py-1" href="#"><i class="bi bi-chevron-left" style="font-size: 0.8rem;"></i></a></li>
+                            <li class="page-item"><a class="page-link border bg-primary-subtle text-primary border-primary-subtle rounded px-3 py-1 shadow-sm fw-bold" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link border-0 text-muted bg-transparent px-3 py-1 shadow-none" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link border-0 text-muted bg-transparent px-3 py-1 shadow-none" href="#">3</a></li>
+                            <li class="page-item disabled"><span class="page-link border-0 text-muted bg-transparent shadow-none">...</span></li>
+                            <li class="page-item"><a class="page-link border bg-white text-muted shadow-sm rounded px-2 py-1" href="#"><i class="bi bi-chevron-right" style="font-size: 0.8rem;"></i></a></li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/backoffice.js"></script>
+</body>
+</html>

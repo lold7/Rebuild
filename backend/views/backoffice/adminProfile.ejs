@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings</title>
+    <meta name="description" content="Manage your admin profile settings">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .admin-sidebar {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body style="background-color: var(--admin-bg);">
+    <div class="admin-layout">
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="admin-sidebar border-end bg-white">
+            <div>
+                <div class="sidebar-header border-bottom">
+                    <div class="logo d-flex align-items-center gap-2">
+                        <div class="logo-icon bg-primary text-white rounded p-1"><i class="bi bi-book-half"></i></div>
+                        <div>
+                            <h5 class="m-0 fw-bold fs-6">BookStore</h5>
+                            <small class="text-muted" style="font-size: 0.72rem;">Admin Console</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-nav mt-4">
+                    <ul class="nav flex-column gap-1 px-3">
+                        <li class="nav-item">
+                            <a href="/backoffice" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/backoffice/categories" class="nav-link"><i class="bi bi-diagram-3"></i> Category</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/backoffice/products" class="nav-link"><i class="bi bi-journal-check"></i> Product</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/backoffice/inventory" class="nav-link"><i class="bi bi-box-seam"></i> Inventory</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/backoffice/orders" class="nav-link"><i class="bi bi-receipt-cutoff"></i> Orders</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/backoffice/customers" class="nav-link"><i class="bi bi-people"></i> Customers</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Sidebar Footer (Sign Out) -->
+            <div class="mt-auto border-top p-3">
+                <a href="/auth/logout" class="nav-link text-muted d-flex align-items-center gap-2 px-3 py-2 text-decoration-none">
+                    <i class="bi bi-box-arrow-left fs-5"></i> <span class="fw-medium font-size-14">Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="admin-main">
+            <!-- Top Navbar -->
+            <header class="admin-topbar bg-white border-bottom d-flex align-items-center justify-content-between px-4 sticky-top">
+                <h4 class="m-0 fw-bold">Profile Settings</h4>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="notification position-relative" style="cursor: pointer;">
+                        <i class="bi bi-bell text-muted" style="font-size: 1.2rem;"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-light rounded-circle" style="margin-top:2px; margin-left:-4px;">
+                            <span class="d-block bg-primary rounded-circle" style="width:6px; height:6px;"></span>
+                        </span>
+                    </div>
+                    <div class="user-profile d-flex flex-row align-items-center gap-3 border-start ps-4" style="cursor: pointer;">
+                        <div class="text-end d-none d-md-block">
+                            <h6 class="m-0 fw-bold font-size-14"><%= typeof admin !== 'undefined' && admin ? admin.username : (typeof user !== 'undefined' && user ? user.username : 'Admin') %></h6>
+                            <small class="text-muted" style="font-size:0.75rem;">Store Manager</small>
+                        </div>
+                        <img src="<%= typeof admin !== 'undefined' && admin && admin.avatar_url ? admin.avatar_url : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop' %>" alt="<%= typeof admin !== 'undefined' && admin ? admin.username : 'Admin' %>" class="rounded-circle" width="40" height="40" style="object-fit:cover;">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Breadcrumb Navigation -->
+            <div class="px-5 pt-4 pb-2">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb m-0 font-size-14">
+                        <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Home</a></li>
+                        <li class="breadcrumb-item active text-dark fw-medium" aria-current="page">Profile Settings</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="px-5 pb-5 pt-3" style="max-width: 1200px;">
+
+                <% if (typeof error !== 'undefined' && error) { %>
+                <div class="alert alert-danger mb-4"><%= error %></div>
+                <% } %>
+                <% if (typeof success !== 'undefined' && success) { %>
+                <div class="alert alert-success mb-4"><%= success %></div>
+                <% } %>
+
+                <!-- Profile Header Card -->
+                <div class="admin-card p-4 d-flex flex-column flex-md-row align-items-center justify-content-between gap-4 mb-4 shadow-sm border-0 border">
+                    <div class="d-flex flex-column flex-md-row align-items-center gap-4 text-center text-md-start">
+                        <!-- Avatar -->
+                        <div class="profile-avatar-wrapper">
+                            <img src="<%= typeof admin !== 'undefined' && admin && admin.avatar_url ? admin.avatar_url : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop' %>" alt="<%= typeof admin !== 'undefined' && admin ? admin.username : 'Admin' %>" class="rounded-circle" width="100" height="100" style="object-fit: cover;">
+                            <div class="profile-edit-badge">
+                                <i class="bi bi-pencil-fill" style="font-size: 0.85rem;"></i>
+                            </div>
+                        </div>
+
+                        <!-- Details -->
+                        <div>
+                            <h3 class="fw-bold mb-1"><%= typeof admin !== 'undefined' && admin ? admin.username : 'Admin' %></h3>
+                            <p class="text-primary font-size-14 fw-medium mb-2">Store Admin</p>
+                            <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-3 text-muted font-size-14">
+                                <span><i class="bi bi-envelope me-1"></i> <%= typeof admin !== 'undefined' && admin ? admin.email : '' %></span>
+                                <% if (typeof admin !== 'undefined' && admin && admin.created_at) { %>
+                                <span><i class="bi bi-calendar3 me-1"></i> Member since <%= new Date(admin.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) %></span>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button class="btn btn-white border px-4 py-2 fw-medium text-dark bg-white shadow-sm font-size-14">View Public Profile</button>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Left Column: Personal Information -->
+                    <div class="col-lg-8">
+                        <div class="admin-card p-4 shadow-sm border-0 border h-100">
+                            <h5 class="fw-bold mb-4 font-size-16">Personal Information</h5>
+                            
+                            <form action="/backoffice/profile" method="POST">
+                                <div class="row g-3 mb-4">
+                                    <div class="col-sm-6">
+                                        <label class="form-label text-muted font-size-14 mb-1">Username</label>
+                                        <input type="text" name="username" class="form-control text-dark py-2" value="<%= typeof admin !== 'undefined' && admin ? admin.username : '' %>">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label text-muted font-size-14 mb-1">Phone Number</label>
+                                        <div class="position-relative">
+                                            <i class="bi bi-telephone profile-input-icon"></i>
+                                            <input type="text" name="phone" class="form-control text-dark py-2 profile-input-with-icon" value="<%= typeof admin !== 'undefined' && admin && admin.phone ? admin.phone : '' %>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-sm-12">
+                                        <label class="form-label text-muted font-size-14 mb-1">Email Address</label>
+                                        <div class="position-relative">
+                                            <i class="bi bi-envelope profile-input-icon"></i>
+                                            <input type="email" name="email" class="form-control text-dark py-2 profile-input-with-icon" value="<%= typeof admin !== 'undefined' && admin ? admin.email : '' %>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end mt-4">
+                                    <button type="submit" class="btn btn-primary px-4 py-2 fw-medium shadow-sm">Save Changes</button>
+                                </div>
+                            </form>
+
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Security & Notifications -->
+                    <div class="col-lg-4">
+                        <div class="d-flex flex-column gap-4 h-100">
+                            
+                            <!-- Security Card -->
+                            <div class="admin-card p-4 shadow-sm border-0 border">
+                                <h5 class="fw-bold mb-4 font-size-16">Security</h5>
+
+                                <form action="/backoffice/profile/password" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted font-size-14 mb-1">Current Password</label>
+                                        <input type="password" name="current_password" class="form-control text-dark py-2" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted font-size-14 mb-1">New Password</label>
+                                        <input type="password" name="new_password" class="form-control text-dark py-2" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted font-size-14 mb-1">Confirm New Password</label>
+                                        <input type="password" name="confirm_password" class="form-control text-dark py-2" required>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="submit" class="btn btn-outline-primary px-4 py-2 fw-medium font-size-14">Change Password</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Notifications Card -->
+                            <div class="admin-card p-4 shadow-sm border-0 border flex-grow-1">
+                                <h5 class="fw-bold mb-4 font-size-16">Notifications</h5>
+                                
+                                <div class="d-flex flex-column gap-3">
+                                    <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                                        <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkOrder" checked>
+                                        <label class="form-check-label text-dark font-size-14" for="checkOrder">Order updates</label>
+                                    </div>
+                                    
+                                    <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                                        <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkInventory" checked>
+                                        <label class="form-check-label text-dark font-size-14" for="checkInventory">Inventory alerts</label>
+                                    </div>
+                                    
+                                    <div class="form-check d-flex align-items-center gap-2 m-0 p-0 ps-4">
+                                        <input class="form-check-input mt-0 fs-5" type="checkbox" id="checkMarketing">
+                                        <label class="form-check-label text-dark font-size-14" for="checkMarketing">Marketing emails</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/backoffice.js"></script>
+</body>
+</html>

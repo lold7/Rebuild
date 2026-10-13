@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart - InwZa Bookstore</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-light"> 
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+
+            <!-- Left: Logo on mobile (centered via CSS), Toggler on right -->
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Desktop 3-column layout -->
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <!-- Left nav links -->
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Categories</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                <% categories.forEach(cat => { %>
+                                    <% const slugMap = { 'Fiction': 'fiction', 'Non-Fiction': 'nonfiction', "Children": 'children', "Mystery & Thriller": 'mystery', "Science & Technology": 'science' }; %>
+                                    <li><a class="dropdown-item" href="/category/<%= slugMap[cat.category_name] || cat.category_name.toLowerCase().replace(/[^a-z]+/g, '') %>"><%= cat.category_name %></a></li>
+                                <% }); %>
+                            <% } else { %>
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                            <% } %>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-primary fw-bold" href="/categories">View All Categories</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- Center logo (desktop only) -->
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <!-- Right: search + button -->
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search" required>
+                        <button type="submit" class="btn position-absolute top-50 end-0 translate-middle-y border-0 p-0 me-3">
+                            <i class="bi bi-search text-muted"></i>
+                        </button>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="display:none;font-size:0.6rem;top:-5px;right:-5px;"><%= typeof cartItems !== 'undefined' ? cartItems.length : 0 %></span></a>
+                    <% if (typeof user !== 'undefined' && user) { %>
+                        <div class="dropdown mt-2 mt-lg-0">
+                            <a class="btn btn-outline-dark rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-1"></i> <%= user.username %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                                <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                                <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                                <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
+                            </ul>
+                        </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+
+        </div>
+    </nav>
+
+    <section class="container mt-5 pt-4 text-center">
+        <span class="text-muted text-uppercase small fw-bold">Cart</span>
+        <h1 class="display-5 fw-bold mb-3">Your books are waiting</h1>
+        <p class="text-muted">Review your order before checkout.</p>
+    </section>
+
+    <section class="container my-5 pb-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                
+                <div id="cart-items-container">
+                    <% if (typeof cartItems !== 'undefined' && cartItems.length > 0) { %>
+                        <% cartItems.forEach(item => { %>
+                        <% const itemImages = typeof item.product_images === 'string' ? JSON.parse(item.product_images) : (item.product_images || []); %>
+                        <% const itemAttrs = typeof item.selected_attributes === 'string' ? JSON.parse(item.selected_attributes) : (item.selected_attributes || {}); %>
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 cart-item" data-cart-item-id="<%= item.cart_item_id %>">
+                        <div class="row g-0">
+                            <div class="col-md-4">
+                                <img src="/images/products/<%= itemImages.length > 0 ? itemImages[0] : 'placeholder.png' %>" class="img-fluid h-100 w-100" alt="<%= item.product_name %>" style="object-fit: cover; min-height: 250px;">
+                            </div>
+                            <div class="col-md-8 p-4 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h4 class="fw-bold mb-0"><%= item.product_name %></h4>
+                                    <h5 class="fw-bold text-primary mb-0">$<span class="item-price"><%= parseFloat(item.product_price).toFixed(2) %></span></h5>
+                                </div>
+                                <p class="text-muted small mb-4"><%= item.author ? 'By ' + item.author : 'Manage your selections and quantities.' %></p>
+
+                                <% if (itemAttrs.format) { %>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted mb-1">Format (Attribute)</label>
+                                    <select class="form-select form-select-sm w-50 rounded-3 bg-light border-0" disabled>
+                                        <option value="<%= itemAttrs.format %>" selected><%= itemAttrs.format %></option>
+                                    </select>
+                                </div>
+                                <% } %>
+
+                                <div class="mt-auto d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <form action="/cart/update" method="POST" class="d-inline">
+                                            <input type="hidden" name="cart_item_id" value="<%= item.cart_item_id %>">
+                                            <div class="input-group input-group-sm w-auto">
+                                                <button class="btn btn-light border btn-minus" type="button"><i class="bi bi-dash"></i></button>
+                                                <input type="number" name="quantity" class="form-control text-center item-qty bg-white border" value="<%= item.quantity %>" min="1" readonly style="max-width: 50px;">
+                                                <button class="btn btn-light border btn-plus" type="button"><i class="bi bi-plus"></i></button>
+                                            </div>
+                                        </form>
+                                        <form action="/cart/remove" method="POST" class="d-inline">
+                                            <input type="hidden" name="cart_item_id" value="<%= item.cart_item_id %>">
+                                            <button type="submit" class="btn btn-link text-danger small text-decoration-none ms-3 p-0 btn-remove"><i class="bi bi-trash"></i> Remove</button>
+                                        </form>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="text-muted small">Total</span>
+                                        <h5 class="fw-bold text-dark mb-0">$<span class="item-total"><%= (item.product_price * item.quantity).toFixed(2) %></span></h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        <% }); %>
+                    <% } %>
+                </div>
+
+                <div id="empty-cart-msg" class="text-center py-5 <%= (typeof cartItems === 'undefined' || cartItems.length === 0) ? '' : 'd-none' %> bg-white rounded-4 shadow-sm mb-4">
+                    <i class="bi bi-cart-x display-1 text-muted mb-3"></i>
+                    <h3 class="fw-bold">Your cart is empty</h3>
+                    <p class="text-muted">Looks like you haven't added anything to your cart yet.</p>
+                    <a href="/products" class="btn btn-primary rounded-pill px-4 mt-3">Continue Shopping</a>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+                    <span class="text-muted text-uppercase small fw-bold text-center">Total</span>
+                    <h3 class="fw-bold text-center mb-4">Order summary</h3>
+                    
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+                        <span class="fw-bold fs-5">Subtotal</span>
+                        <h2 class="fw-bold mb-0">$<span id="cart-subtotal"><%= typeof total !== 'undefined' ? total.toFixed(2) : '0.00' %></span></h2>
+                    </div>
+                    
+                    <ul class="list-unstyled text-muted small lh-lg mb-4">
+                        <li><i class="bi bi-check2 text-success me-2"></i> Free shipping on orders over $50</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i> Secure payment checkout</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i> Taxes calculated at checkout</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i> Fast support team access</li>
+                    </ul>
+                </div>
+
+                <div class="card border-0 rounded-4 p-4 p-md-5 text-center" style="background-color: #f0f2f5;">
+                    <h3 class="fw-bold mb-3">Ready to finish your order?</h3>
+                    <p class="text-muted small mb-4">Review your selections above, make sure everything is correct, and proceed to checkout.</p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <a href="/checkout" id="btn-checkout" class="btn btn-primary rounded-pill px-5 fw-bold">Proceed to checkout</a>
+                        <a href="/products" class="btn btn-outline-dark rounded-pill px-4 bg-white border-0 shadow-sm">Continue shopping</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section class="container my-5 py-5 w-75">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Questions</h2>
+            <p class="text-muted">Find answers to common questions before you complete your purchase.</p>
+        </div>
+
+        <div class="accordion accordion-flush" id="faqAccordion">
+            <div class="accordion-item border-bottom mb-3 bg-transparent">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        Can I change my order?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-muted small">
+                        You can modify your cart anytime before checkout. Once the order is placed, please contact support within 24 hours.
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-bottom mb-3 bg-transparent">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        What formats are available?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-muted small">
+                        Most of our books come in Paperback and Hardcover formats. You can select your preference on the product page or in the cart.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-5">
+            <p class="mb-2 fw-bold">Need more help?</p>
+            <a href="#" class="btn btn-light border rounded-pill px-4 shadow-sm">Contact</a>
+        </div>
+    </section>
+
+    <footer class="container py-5 border-top bg-light">
+        <div class="text-center text-muted small pt-4 mt-4 border-top">
+            <p>&copy; 2026 InwZa Bookstore. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

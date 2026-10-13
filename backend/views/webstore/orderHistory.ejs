@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History - InwZa Bookstore</title>
+    <meta name="description" content="View your complete order history at InwZa Bookstore. Track purchases, review past orders, and reorder your favorite books.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <!-- ========== NAVBAR ========== -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Categories</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                <% categories.forEach(cat => { %>
+                                    <% const slugMap = { 'Fiction': 'fiction', 'Non-Fiction': 'nonfiction', "Children": 'children', "Mystery & Thriller": 'mystery', "Science & Technology": 'science' }; %>
+                                    <li><a class="dropdown-item" href="/category/<%= slugMap[cat.category_name] || cat.category_name.toLowerCase().replace(/[^a-z]+/g, '') %>"><%= cat.category_name %></a></li>
+                                <% }); %>
+                            <% } else { %>
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                            <% } %>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-primary fw-bold" href="/categories">View All Categories</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search">
+                        <button type="submit" class="btn position-absolute top-50 end-0 translate-middle-y border-0 p-0 me-3">
+                            <i class="bi bi-search text-muted"></i>
+                        </button>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.6rem;top:-5px;right:-5px;"><%= cartCount %></span><% } %></a>
+                    <% if (typeof user !== 'undefined' && user) { %>
+                        <div class="dropdown mt-2 mt-lg-0">
+                            <a class="btn btn-outline-dark rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-1"></i> <%= user.username %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                                <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                                <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                                <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
+                            </ul>
+                        </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== HEADER SECTION ========== -->
+    <section class="order-hero text-center" id="order-header">
+        <div class="container">
+            <h1>Your order history</h1>
+            <p>Review every past purchase and track the details of each order.</p>
+        </div>
+    </section>
+
+    <!-- Sub-header -->
+    <section class="order-subheader text-center" id="order-subheader">
+        <div class="container">
+            <span class="sub-label">Orders</span>
+            <h2>Your purchases, laid bare</h2>
+            <p>Each order lists the title, date, what you paid, what format they are, and where it was sent. Just click.</p>
+            <a href="#" class="btn btn-outline-dark rounded-pill px-4 btn-sm mt-3">Details</a>
+        </div>
+    </section>
+
+    <!-- ========== TIMELINE SECTION ========== -->
+    <section class="timeline-section" id="timeline-section">
+        <div class="container">
+            <div class="timeline-nav">
+                <a href="#" aria-label="Previous"><i class="bi bi-arrow-left"></i></a>
+                <a href="#" aria-label="Next"><i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="timeline-track">
+                <div class="timeline-item">
+                    <h5>December</h5>
+                    <p>Ordered 3 books. Delivered. Payment confirmed for all orders. Shipments completed.</p>
+                </div>
+                <div class="timeline-item">
+                    <h5>November</h5>
+                    <p>One gift purchase. Payment confirmed. Express delivery selected. All items delivered.</p>
+                </div>
+                <div class="timeline-item">
+                    <h5>October</h5>
+                    <p>Ordered 2 items. One returned for a refund. Refund processed. Remaining item delivered.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FEATURES LIST / WHAT YOU ORDERED ========== -->
+    <section class="ordered-section" id="features-section">
+        <div class="container">
+            <div class="text-center mb-4">
+                <span class="section-label">Items</span>
+                <h2>What you ordered</h2>
+                <p class="section-desc mx-auto">Each title is listed with its cover, format, date, and price. Everything from hardcover to audiobook in one place.</p>
+            </div>
+
+            <div id="order-list" class="mb-4" style="max-width: 800px; margin: 0 auto;">
+                <% if (typeof orders !== 'undefined' && orders.length > 0) { %>
+                    <% orders.forEach(function(order, index) { %>
+                    <div class="card border mb-3 rounded-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Order #<%= order.order_id %></h6>
+                                    <small class="text-muted"><%= new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %></small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge <%= order.status === 'completed' ? 'bg-success' : order.status === 'cancelled' ? 'bg-danger' : 'bg-warning text-dark' %> rounded-pill px-3 py-1 mb-1"><%= order.status.charAt(0).toUpperCase() + order.status.slice(1) %></span>
+                                    <div class="fw-bold">$<%= parseFloat(order.total_price).toFixed(2) %></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small class="text-muted">Payment: <%= order.payment_method || 'N/A' %></small>
+                                <button class="btn btn-sm btn-outline-dark rounded-pill px-3" type="button" data-bs-toggle="collapse" data-bs-target="#orderDetail-<%= order.order_id %>">
+                                    Details <i class="bi bi-chevron-down small"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="collapse" id="orderDetail-<%= order.order_id %>">
+                            <div class="card-body border-top pt-3">
+                                <% if (order.items && order.items.length > 0) { %>
+                                    <% order.items.forEach(function(item) { %>
+                                    <div class="d-flex align-items-center gap-3 mb-2 pb-2 border-bottom">
+                                        <% const orderImgs = typeof item.product_images === 'string' ? JSON.parse(item.product_images) : (item.product_images || []); %>
+                                        <img src="/images/products/<%= orderImgs[0] || 'placeholder.jpg' %>" class="rounded" width="45" height="60" style="object-fit:cover;" alt="<%= item.product_name %>">
+                                        <div class="flex-grow-1">
+                                            <span class="fw-bold"><%= item.product_name %></span><br>
+                                            <small class="text-muted">Qty: <%= item.quantity %></small>
+                                        </div>
+                                        <span class="fw-bold">$<%= (parseFloat(item.unit_price) * item.quantity).toFixed(2) %></span>
+                                    </div>
+                                    <% }); %>
+                                <% } else { %>
+                                    <p class="text-muted small">No item details available.</p>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                    <% }); %>
+                <% } else { %>
+                    <div class="text-center py-5">
+                        <i class="bi bi-bag-x fs-1 text-muted"></i>
+                        <h5 class="mt-3 text-muted">No orders yet</h5>
+                        <p class="text-muted">When you make a purchase, your orders will appear here.</p>
+                        <a href="/products" class="btn btn-primary rounded-pill px-4">Browse Products</a>
+                    </div>
+                <% } %>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="category-tabs justify-content-center">
+                <a href="#" class="tab-btn active">Hardcover</a>
+                <a href="#" class="tab-btn">Paperback</a>
+                <a href="#" class="tab-btn">Library</a>
+                <a href="#" class="tab-btn">Audiobook</a>
+                <a href="#" class="tab-btn">Bundle/Set</a>
+                <a href="#" class="tab-btn">Essentials</a>
+            </div>
+
+            <!-- Product Card -->
+            <div class="order-product-card mx-auto">
+                <div class="row g-0">
+                    <div class="col-md-6 card-info d-flex flex-column justify-content-center">
+                        <span class="card-tag"><i class="bi bi-book me-1"></i> Fiction</span>
+                        <h3>The old man and the sea</h3>
+                        <p class="card-desc">Hardcover • Ordered 5 days ago • $18.00 USD</p>
+                        <a href="#" class="card-link">Details <i class="bi bi-chevron-right"></i></a>
+                    </div>
+                    <div class="col-md-6 card-image">
+                        <img src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop" alt="The Old Man and the Sea" class="rounded-end-4">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FAQ SECTION ========== -->
+    <section class="order-faq" id="faq-section">
+        <div class="container" style="max-width: 780px;">
+            <div class="text-center mb-5">
+                <h2>Questions</h2>
+                <p class="text-muted">Find answers to common questions about your order history and payments.</p>
+            </div>
+
+            <div class="accordion accordion-flush" id="orderFaqAccordion">
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#ofaq1">
+                            How do I track my order?
+                        </button>
+                    </h2>
+                    <div id="ofaq1" class="accordion-collapse collapse" data-bs-parent="#orderFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            After placing an order, you'll receive a confirmation email with a tracking number. You can also find real-time tracking updates by clicking on any order in your history above. Delivery notifications are sent automatically.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#ofaq2">
+                            What's your return policy?
+                        </button>
+                    </h2>
+                    <div id="ofaq2" class="accordion-collapse collapse" data-bs-parent="#orderFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Books can be returned within thirty days of purchase if they remain in original condition. Shipping is free for returns. Once received, refunds are processed within five business days to your original payment method.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#ofaq3">
+                            Can I modify my order?
+                        </button>
+                    </h2>
+                    <div id="ofaq3" class="accordion-collapse collapse" data-bs-parent="#orderFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Orders can be modified within one hour of placement. After that, the order enters our fulfillment process and cannot be changed. Contact us immediately with your order number and requested changes.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#ofaq4">
+                            How long does shipping take?
+                        </button>
+                    </h2>
+                    <div id="ofaq4" class="accordion-collapse collapse" data-bs-parent="#orderFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Standard shipping takes five to seven business days. Express delivery is available at checkout for two to three business day delivery. Free shipping is included on orders over fifty dollars.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent fw-bold px-0" type="button" data-bs-toggle="collapse" data-bs-target="#ofaq5">
+                            Do you ship internationally?
+                        </button>
+                    </h2>
+                    <div id="ofaq5" class="accordion-collapse collapse" data-bs-parent="#orderFaqAccordion">
+                        <div class="accordion-body px-0 text-muted">
+                            Yes, we ship to most countries worldwide. International delivery typically takes ten to fourteen business days. Customs duties and taxes may apply depending on your destination and local regulations.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="text-center mt-5 pt-3">
+                <h4 class="fw-bold mb-2">Need more help?</h4>
+                <p class="text-muted mb-3">Reach out to our team anytime.</p>
+                <a href="/contact" class="btn btn-outline-dark rounded-pill px-4">Contact</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CTA SECTION ========== -->
+    <section class="container my-5" id="cta-section">
+        <div class="rounded-4 text-center text-white py-5 px-4 position-relative overflow-hidden" style="background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1200&auto=format&fit=crop') center/cover no-repeat; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <h2 class="fw-bold display-6 mb-2">Questions about your order?</h2>
+            <p class="mb-4 opacity-75">Our support team is always a few clicks away.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="/contact" class="btn btn-primary rounded-pill px-4">Contact</a>
+                <a href="#faq-section" class="btn btn-outline-light rounded-pill px-4">FAQ</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer py-5" id="site-footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="row">
+                    <div class="col-12 col-md-4 mb-4 mb-md-0">
+                        <h6>Address</h6>
+                        <p class="mb-3">Level 2, 45 King Street, Sydney NSW 2000</p>
+                        <h6>Contact</h6>
+                        <p class="mb-1"><a href="tel:18005550123">1800 555 0123</a></p>
+                        <p><a href="mailto:hello@minimalistbookstore.com">hello@minimalistbookstore.com</a></p>
+                        <div class="footer-social mt-3">
+                            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                            <a href="#" aria-label="Twitter X"><i class="bi bi-twitter-x"></i></a>
+                            <a href="#" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+                            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/products">All products</a>
+                        <a href="/categories">Categories</a>
+                        <a href="/contact">Contact us</a>
+                        <a href="#">About us</a>
+                        <a href="/account/orders">Order history</a>
+                    </div>
+                    <div class="col-6 col-md-4 footer-links">
+                        <a href="/account/wishlist">Wishlist</a>
+                        <a href="/account/profile">Account</a>
+                        <a href="/cart">Cart</a>
+                        <a href="/faq">FAQ</a>
+                        <a href="/condition">Returns</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom d-flex flex-column flex-sm-row justify-content-between align-items-center">
+                <p class="mb-2 mb-sm-0">&copy; 2025 Minimalist Bookstore. All rights reserved.</p>
+                <div class="d-flex gap-3">
+                    <a href="#">Privacy policy</a>
+                    <a href="#">Terms of service</a>
+                    <a href="#">Cookie settings</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="/js/account.js"></script>
+</body>
+</html>

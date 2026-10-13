@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management</title>
+    <meta name="description" content="Manage and fulfill customer book orders.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="background-color: var(--admin-bg);">
+    <div class="admin-layout">
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="admin-sidebar border-end bg-white">
+            <div class="sidebar-header border-bottom">
+                <div class="logo d-flex align-items-center gap-2">
+                    <div class="logo-icon bg-primary text-white rounded p-1"><i class="bi bi-book-half"></i></div>
+                    <div>
+                        <h5 class="m-0 fw-bold fs-6">BookStore</h5>
+                        <small class="text-muted" style="font-size: 0.72rem;">Admin Console</small>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-nav mt-4">
+                <ul class="nav flex-column gap-1 px-3">
+                    <li class="nav-item">
+                        <a href="/backoffice" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/categories" class="nav-link"><i class="bi bi-diagram-3"></i> Category</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/products" class="nav-link"><i class="bi bi-journal-check"></i> Product</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/inventory" class="nav-link"><i class="bi bi-box-seam"></i> Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/orders" class="nav-link active"><i class="bi bi-receipt-cutoff"></i> Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/backoffice/customers" class="nav-link"><i class="bi bi-people"></i> Customers</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="admin-main">
+            <!-- Top Navbar -->
+            <header class="admin-topbar bg-white border-bottom d-flex align-items-center justify-content-between px-4 sticky-top">
+                <h4 class="m-0 fw-bold">Orders</h4>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="notification position-relative" style="cursor: pointer;">
+                        <i class="bi bi-bell text-muted" style="font-size: 1.2rem;"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-light rounded-circle" style="margin-top:2px; margin-left:-4px;">
+                            <span class="d-block bg-primary rounded-circle" style="width:6px; height:6px;"></span>
+                        </span>
+                    </div>
+                    <div class="user-profile d-flex flex-row align-items-center gap-3 border-start ps-4" style="cursor: pointer;">
+                        <div class="text-end d-none d-md-block">
+                            <h6 class="m-0 fw-bold font-size-14"><%= typeof user !== 'undefined' && user ? user.username : 'Admin' %></h6>
+                            <small class="text-muted" style="font-size:0.75rem;">Store Manager</small>
+                        </div>
+                        <img src="<%= typeof user !== 'undefined' && user && user.avatar_url ? user.avatar_url : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop' %>" alt="<%= typeof user !== 'undefined' && user ? user.username : 'Admin' %>" class="rounded-circle" width="40" height="40" style="object-fit:cover;">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Header Area -->
+            <div class="d-flex align-items-center justify-content-between px-5 pt-5 pb-4">
+                <div>
+                    <h2 class="m-0 fw-bold fs-3">Order Management</h2>
+                    <p class="text-muted m-0 font-size-14 mt-1">Manage and fulfill customer book orders.</p>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-white border px-4 py-2 d-flex align-items-center gap-2 fw-medium text-dark bg-white shadow-sm">
+                        Export CSV
+                    </button>
+                    <button class="btn btn-primary px-4 py-2 d-flex align-items-center gap-2 fw-medium shadow-sm">
+                        <i class="bi bi-plus-lg"></i> Create Order
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content Container -->
+            <div class="px-5 pb-5 pt-0" style="max-width: 1300px;">
+                
+                <!-- Filter Bar Card -->
+                <div class="admin-card p-2 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm border-0">
+                    <!-- Tabs -->
+                    <div class="order-tabs d-flex align-items-center gap-1">
+                        <a href="/backoffice/orders" class="tab-link <%= typeof statusFilter === 'undefined' || !statusFilter ? 'active' : '' %>">All Orders</a>
+                        <a href="/backoffice/orders?status=pending" class="tab-link <%= typeof statusFilter !== 'undefined' && statusFilter === 'pending' ? 'active' : '' %>">Pending</a>
+                        <a href="/backoffice/orders?status=processing" class="tab-link <%= typeof statusFilter !== 'undefined' && statusFilter === 'processing' ? 'active' : '' %>">Processing</a>
+                        <a href="/backoffice/orders?status=completed" class="tab-link <%= typeof statusFilter !== 'undefined' && statusFilter === 'completed' ? 'active' : '' %>">Completed</a>
+                        <a href="/backoffice/orders?status=cancelled" class="tab-link <%= typeof statusFilter !== 'undefined' && statusFilter === 'cancelled' ? 'active' : '' %>">Cancelled</a>
+                    </div>
+                    
+                    <!-- Search & Filter Controls -->
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="search-bar position-relative" style="width: 250px;">
+                            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-muted"></i>
+                            <input type="text" class="form-control ps-5 text-dark" placeholder="Search order ID, customer...">
+                        </div>
+                        <button class="btn btn-white border px-3 d-flex align-items-center gap-2 fw-medium text-dark bg-white shadow-sm">
+                            <i class="bi bi-filter"></i> Filter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Orders Table Card -->
+                <div class="admin-card p-0 overflow-hidden border-0 shadow-sm rounded-4">
+                    <div class="table-responsive">
+                        <table class="table admin-table mb-0 align-middle table-hover">
+                            <thead class="bg-white text-muted border-bottom">
+                                <tr>
+                                    <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Order ID</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Customer</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Date</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Total</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Payment</th>
+                                    <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Status</th>
+                                    <th class="text-end pe-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                                <% if (typeof orders !== 'undefined' && orders && orders.length > 0) { %>
+                                <% orders.forEach(function(order) { %>
+                                <%
+                                    var custName = order.username || 'Unknown';
+                                    var initials = custName.split(' ').map(function(w) { return w.charAt(0).toUpperCase(); }).join('').substring(0, 2);
+                                    var orderDate = order.created_at ? new Date(order.created_at) : new Date();
+                                    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                                    var dateStr = monthNames[orderDate.getMonth()] + ' ' + orderDate.getDate() + ', ' + orderDate.getFullYear();
+                                    var statusClass = 'status-pending';
+                                    if (order.status === 'completed') statusClass = 'status-completed';
+                                    else if (order.status === 'cancelled') statusClass = 'status-cancelled';
+                                    else if (order.status === 'processing') statusClass = 'status-processing';
+                                %>
+                                <tr>
+                                    <td class="ps-4 py-3 border-bottom"><a href="#" class="text-decoration-none fw-medium text-primary">#ORD-<%= String(order.order_id).padStart(3, '0') %></a></td>
+                                    <td class="border-bottom">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="customer-avatar bg-jd text-primary fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;"><%= initials %></div>
+                                            <h6 class="m-0 fw-medium font-size-14 text-dark"><%= custName %></h6>
+                                        </div>
+                                    </td>
+                                    <td class="text-secondary font-size-14 border-bottom"><%= dateStr %></td>
+                                    <td class="text-dark font-size-14 fw-semibold border-bottom">$<%= Number(order.total_price).toFixed(2) %></td>
+                                    <td class="text-secondary font-size-14 border-bottom"><%= order.payment_method || 'N/A' %></td>
+                                    <td class="border-bottom">
+                                        <form action="/backoffice/orders/status/<%= order.order_id %>" method="POST" class="d-inline">
+                                            <select name="status" class="badge <%= statusClass %> rounded-pill px-3 py-1 fw-normal border-0" onchange="this.form.submit()" style="cursor:pointer; appearance: auto;">
+                                                <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>>Pending</option>
+                                                <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>>Completed</option>
+                                                <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+                                            </select>
+                                        </form>
+                                    </td>
+                                    <td class="text-end pe-4 border-bottom">
+                                        <a href="#" class="text-decoration-none fw-medium text-primary font-size-14">View</a>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                                <% } else { %>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">No orders found.</td>
+                                </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination Footer -->
+                    <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
+                        <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong><%= typeof orders !== 'undefined' && orders ? orders.length : 0 %></strong> results</span>
+                        <ul class="admin-pagination pagination m-0 gap-1 d-flex align-items-center">
+                            <li class="page-item"><a class="page-link border bg-white text-muted shadow-sm rounded px-2 py-1" href="#"><i class="bi bi-chevron-left" style="font-size: 0.8rem;"></i></a></li>
+                            <li class="page-item"><a class="page-link border bg-primary-subtle text-primary border-primary-subtle rounded px-3 py-1 shadow-sm fw-bold" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link border-0 text-muted bg-transparent px-3 py-1 shadow-none" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link border-0 text-muted bg-transparent px-3 py-1 shadow-none" href="#">3</a></li>
+                            <li class="page-item disabled"><span class="page-link border-0 text-muted bg-transparent shadow-none">...</span></li>
+                            <li class="page-item"><a class="page-link border-0 text-muted bg-transparent px-3 py-1 shadow-none" href="#">8</a></li>
+                            <li class="page-item"><a class="page-link border bg-white text-muted shadow-sm rounded px-2 py-1" href="#"><i class="bi bi-chevron-right" style="font-size: 0.8rem;"></i></a></li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/backoffice.js"></script>
+</body>
+</html>

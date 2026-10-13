@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete your order</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-white">
+
+    <!-- 1. Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
+        <div class="container d-flex align-items-center flex-wrap">
+            <a class="navbar-brand d-lg-none mx-auto" href="/">
+                <img src="/images/Logo.png" alt="Logo" class="navbar-logo" width="100">
+            </a>
+            <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4">
+                    <li class="nav-item"><a class="nav-link fw-bold text-dark" href="/products">All Products</a></li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="categoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Categories
+                        </a>
+                        <ul class="dropdown-menu border-0 shadow" aria-labelledby="categoryDropdown">
+                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                <% categories.forEach(cat => { %>
+                                    <% const slugMap = { 'Fiction': 'fiction', 'Non-Fiction': 'nonfiction', "Children": 'children', "Mystery & Thriller": 'mystery', "Science & Technology": 'science' }; %>
+                                    <li><a class="dropdown-item" href="/category/<%= slugMap[cat.category_name] || cat.category_name.toLowerCase().replace(/[^a-z]+/g, '') %>"><%= cat.category_name %></a></li>
+                                <% }); %>
+                            <% } else { %>
+                            <li><a class="dropdown-item" href="/category/fiction">Fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/nonfiction">Non-fiction</a></li>
+                            <li><a class="dropdown-item" href="/category/children">Children's Books</a></li>
+                            <li><a class="dropdown-item" href="/category/mystery">Mystery & Thriller</a></li>
+                            <li><a class="dropdown-item" href="/category/science">Science & Tech</a></li>
+                            <% } %>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-primary" href="/categories">View All Categories</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle fw-bold text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">More</a>
+                        <ul class="dropdown-menu border-0 shadow">
+                            <li><a class="dropdown-item" href="/contact">Contact</a></li>
+                            <li><a class="dropdown-item" href="/account/profile">Account</a></li>
+                            <li><a class="dropdown-item" href="/cart">Cart</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div class="d-none d-lg-flex col-lg-4 justify-content-center">
+                    <a class="navbar-brand m-0" href="/">
+                        <img src="/images/Logo.png" alt="Logo" class="navbar-logo" width="100">
+                    </a>
+                </div>
+
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
+                    <form action="/search" method="GET" class="d-flex position-relative my-2 my-lg-0">
+                        <input name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products...">
+                        <button type="submit" class="btn position-absolute top-50 end-0 translate-middle-y border-0 p-0 me-3">
+                            <i class="bi bi-search text-muted"></i>
+                        </button>
+                    </form>
+                    <a href="/cart" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative"><i class="bi bi-cart3 fs-5"></i><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.6rem;top:-5px;right:-5px;"><%= cartCount %></span><% } %></a>
+                    <% if (typeof user !== 'undefined' && user) { %>
+                        <div class="dropdown mt-2 mt-lg-0">
+                            <a class="btn btn-outline-dark rounded-pill px-4 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-1"></i> <%= user.username %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                                <li><a class="dropdown-item" href="/account/orders">Order History</a></li>
+                                <li><a class="dropdown-item" href="/account/wishlist">Wishlist</a></li>
+                                <li><a class="dropdown-item" href="/account/addresses">Address Book</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
+                            </ul>
+                        </div>
+                    <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 2. Header Section -->
+    <section class="container mt-5 pt-5 text-center">
+        <h1 class="display-4 fw-normal mb-3 text-dark" style="font-size: 3rem;">Complete your order</h1>
+        <p class="text-dark" style="font-size: 0.95rem;">Your payment is protected and encrypted. We process orders quickly and securely.</p>
+    </section>
+
+    <!-- Checkout Order Summary -->
+    <section class="container my-5" style="max-width: 800px;">
+        <div class="row g-5">
+            <div class="col-md-7">
+                <h5 class="fw-bold mb-3">Order Summary</h5>
+                <div id="checkout-items">
+                <% if (typeof cartItems !== 'undefined' && cartItems.length > 0) { %>
+                    <% cartItems.forEach(function(item) { %>
+                    <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+                        <img src="/images/products/<%= item.product_images[0] %>" class="rounded-3" width="60" height="80" style="object-fit:cover;" alt="<%= item.product_name %>">
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-0"><%= item.product_name %></h6>
+                            <small class="text-muted"><%= item.selected_attributes && item.selected_attributes.format ? item.selected_attributes.format : 'Paperback' %> x <%= item.quantity %></small>
+                        </div>
+                        <span class="fw-bold">$<%= (item.product_price * item.quantity).toFixed(2) %></span>
+                    </div>
+                    <% }); %>
+                <% } else { %>
+                    <p class="text-muted">No items in your cart.</p>
+                <% } %>
+                </div>
+                <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+                    <span class="fw-bold fs-5">Total</span>
+                    <h4 class="fw-bold mb-0">$<span id="checkout-total"><%= typeof total !== 'undefined' ? total.toFixed(2) : '0.00' %></span></h4>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <h5 class="fw-bold mb-3">Shipping Address</h5>
+                <div id="checkout-address">
+                <% if (typeof addresses !== 'undefined' && addresses.length > 0) { %>
+                    <% addresses.forEach(function(addr) { %>
+                    <div class="form-check mb-3 p-3 border rounded-3">
+                        <input class="form-check-input" type="radio" name="shipping-address" id="addr-<%= addr.address_id %>" value="<%= addr.address_id %>" <%= addr.is_default ? 'checked' : '' %>>
+                        <label class="form-check-label w-100" for="addr-<%= addr.address_id %>">
+                            <strong><%= addr.label %></strong> — <%= addr.full_name %><br>
+                            <small class="text-muted"><%= addr.address_line %>, <%= addr.city %> <%= addr.postal_code %></small>
+                        </label>
+                    </div>
+                    <% }); %>
+                <% } else { %>
+                    <p class="text-muted">No addresses saved. <a href="/account/addresses">Add one here</a>.</p>
+                <% } %>
+                </div>
+                <a href="/account/addresses" class="btn btn-outline-secondary rounded-pill px-4 w-100 mb-2">Add New Address</a>
+                <button id="btn-continue-payment" class="btn btn-primary rounded-pill px-5 fw-bold w-100 mt-3">Continue to Payment</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. FAQ Section -->
+    <section class="container my-5 pt-5 pb-4 mx-auto" style="max-width: 800px;">
+        <div class="text-center mb-5 pb-3">
+            <h2 class="fw-normal mb-3 text-dark" style="font-size: 2.5rem;">Questions</h2>
+            <p class="text-dark small" style="font-size: 0.95rem;">Find answers to the most common questions about payment and delivery</p>
+        </div>
+
+        <div class="faq-list px-3">
+            <div class="mb-4 pb-3">
+                <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">How long does shipping take</h6>
+                <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Standard delivery arrives within five to seven business days. Express shipping takes two business days. International orders may require additional time depending on customs clearance.</p>
+            </div>
+            
+            <div class="mb-4 pb-3">
+                <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">What payment methods do you accept</h6>
+                <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">We accept all major credit cards, debit cards, and digital wallets. Your payment information is encrypted and processed securely through our trusted payment partner.</p>
+            </div>
+            
+            <div class="mb-4 pb-3">
+                <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">Can I change my order after placing it</h6>
+                <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Orders can be modified within one hour of placement. After that, contact our support team immediately to request changes before your order ships.</p>
+            </div>
+            
+            <div class="mb-4 pb-3">
+                <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">Do you ship internationally</h6>
+                <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Yes, we ship to most countries worldwide. International shipping costs and delivery times vary by location. Customs duties may apply depending on your country.</p>
+            </div>
+            
+            <div class="mb-4 pb-3">
+                <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.95rem;">What is your return policy</h6>
+                <p class="text-dark" style="font-size: 0.85rem; line-height: 1.6;">Books in new condition can be returned within thirty days for a full refund. Opened or damaged books may be eligible for exchange. Return shipping is free on qualifying items.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Need more help section (Continuation of FAQ area based on reference) -->
+    <section class="container text-center mb-5 pb-5">
+        <h4 class="fw-normal mb-3 text-dark" style="font-size: 1.8rem;">Need more help</h4>
+        <p class="text-dark mb-4" style="font-size: 0.95rem;">Reach out to our team for assistance with your order</p>
+        <a href="/contact" class="btn btn-light bg-light rounded-pill px-4 py-2 fs-6 shadow-sm border text-dark fw-bold" style="font-size: 0.9rem !important;">Contact us</a>
+    </section>
+
+    <!-- 4. Footer -->
+    <footer class="container py-4 mb-4">
+        <div class="card border border-light-subtle p-4 p-md-5 bg-white shadow-none" style="border-radius: 25px !important; border-width: 1px !important;">
+            <div class="row g-4 mt-2 mb-4">
+                <div class="col-lg-6">
+                    <div class="mb-4">
+                        <h6 class="fw-bold fs-6 mb-2 text-dark" style="font-size: 0.85rem !important;">Address</h6>
+                        <p class="text-dark mb-0" style="font-size: 0.8rem;">Level 2, 45 King Street, Sydney NSW 2000</p>
+                    </div>
+                    <div class="mb-4">
+                        <h6 class="fw-bold fs-6 mb-2 text-dark" style="font-size: 0.85rem !important;">Contact</h6>
+                        <p class="text-dark mb-0" style="font-size: 0.8rem;"><a href="tel:18005550123" class="text-dark text-decoration-underline">1800 555 0123</a></p>
+                        <p class="text-dark mb-0" style="font-size: 0.8rem;"><a href="mailto:hello@inwzabookstore.com" class="text-dark text-decoration-underline">hello@inwzabookstore.com</a></p>
+                    </div>
+                    <div class="d-flex gap-3 mt-4">
+                        <a href="#" class="text-dark fs-5"><i class="bi bi-facebook"></i></a>
+                        <a href="#" class="text-dark fs-5"><i class="bi bi-instagram"></i></a>
+                        <a href="#" class="text-dark fs-5"><i class="bi bi-twitter-x"></i></a>
+                        <a href="#" class="text-dark fs-5"><i class="bi bi-linkedin"></i></a>
+                        <a href="#" class="text-dark fs-5"><i class="bi bi-youtube"></i></a>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-6">
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-3 fw-bold" style="font-size: 0.85rem;">
+                        <li><a href="/products" class="text-dark text-decoration-none">All products</a></li>
+                        <li><a href="/categories" class="text-dark text-decoration-none">Categories</a></li>
+                        <li><a href="/contact" class="text-dark text-decoration-none">Contact us</a></li>
+                        <li><a href="#" class="text-dark text-decoration-none">About us</a></li>
+                        <li><a href="/account/orders" class="text-dark text-decoration-none">Order history</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-6">
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-3 fw-bold" style="font-size: 0.85rem;">
+                        <li><a href="/account/wishlist" class="text-dark text-decoration-none">Wishlist</a></li>
+                        <li><a href="/account/profile" class="text-dark text-decoration-none">Account</a></li>
+                        <li><a href="/cart" class="text-dark text-decoration-none">Cart</a></li>
+                        <li><a href="/faq" class="text-dark text-decoration-none">FAQ</a></li>
+                        <li><a href="#" class="text-dark text-decoration-none">Returns</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mt-5 pt-3">
+                <p class="text-dark mb-3 mb-md-0" style="font-size: 0.8rem;">&copy; 2026 InwZa Bookstore. All rights reserved.</p>
+                <div class="d-flex gap-4">
+                    <a href="#" class="text-dark text-decoration-underline" style="font-size: 0.8rem;">Privacy policy</a>
+                    <a href="#" class="text-dark text-decoration-underline" style="font-size: 0.8rem;">Terms of service</a>
+                    <a href="#" class="text-dark text-decoration-underline" style="font-size: 0.8rem;">Cookie settings</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/wishlist.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="/js/checkout.js"></script>
+</body>
+</html>
