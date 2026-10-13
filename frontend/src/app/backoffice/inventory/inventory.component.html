@@ -1,0 +1,166 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Inventory"></app-admin-topbar>
+
+    <div class="p-4" style="max-width: 1400px;">
+      <!-- Page Header & Actions -->
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1 font-size-14">
+              <li class="breadcrumb-item"><a routerLink="/backoffice/inventory" class="text-decoration-none text-muted">Inventory</a></li>
+              <li class="breadcrumb-item active text-muted" aria-current="page">{{ isEditMode ? 'Edit' : 'Add New' }}</li>
+            </ol>
+          </nav>
+          <h2 class="fw-bold mb-1 page-title">{{ isEditMode ? 'Edit Product' : 'Add New Product' }}</h2>
+          <p class="text-muted m-0 font-size-14">{{ isEditMode ? 'Update the details of this product.' : 'Fill in the details to add a new book to the inventory.' }}</p>
+        </div>
+        <div class="d-flex gap-3">
+          <a routerLink="/backoffice/products" class="btn btn-white border rounded-3 fw-medium px-4 bg-white text-muted shadow-sm">
+            Cancel
+          </a>
+          <button (click)="onSubmit()" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
+            <mat-icon>check</mat-icon> {{ isEditMode ? 'Update Product' : 'Publish Product' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Form Layout -->
+      <form (ngSubmit)="onSubmit()">
+        <div class="row g-4">
+          <!-- Left Column (Main Form) -->
+          <div class="col-lg-8">
+            <!-- General Information Card -->
+            <div class="form-card admin-card mb-4 p-4 bg-white rounded-3 border">
+              <h5 class="fw-bold mb-3">General Information</h5>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Product Name</label>
+                <input type="text" [(ngModel)]="formModel.product_name" name="product_name" class="form-control" placeholder="e.g. The Great Gatsby" required>
+              </div>
+
+              <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-medium">Author</label>
+                  <input type="text" [(ngModel)]="formModel.author" name="author" class="form-control" placeholder="Author Name">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">ISBN</label>
+                  <input type="text" [(ngModel)]="formModel.isbn" name="isbn" class="form-control" placeholder="978-3-16-148410-0">
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label fw-medium">Description</label>
+                <div class="editor-toolbar mb-2 d-flex gap-2 p-2 bg-light rounded border">
+                  <button type="button" class="btn btn-sm btn-light border-0"><mat-icon>format_bold</mat-icon></button>
+                  <button type="button" class="btn btn-sm btn-light border-0"><mat-icon>format_italic</mat-icon></button>
+                  <button type="button" class="btn btn-sm btn-light border-0"><mat-icon>format_underlined</mat-icon></button>
+                  <button type="button" class="btn btn-sm btn-light border-0 ms-3"><mat-icon>format_list_bulleted</mat-icon></button>
+                  <button type="button" class="btn btn-sm btn-light border-0"><mat-icon>link</mat-icon></button>
+                </div>
+                <textarea [(ngModel)]="formModel.product_description" name="product_description" class="form-control editor-textarea" rows="5" placeholder="Write a detailed description of the book..."></textarea>
+              </div>
+            </div>
+
+            <!-- Pricing & Inventory Card -->
+            <div class="form-card admin-card p-4 bg-white rounded-3 border">
+              <h5 class="fw-bold mb-3">Pricing & Inventory</h5>
+
+              <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-medium">Base Price</label>
+                  <div class="input-group">
+                    <span class="input-group-text border-end-0 fw-medium bg-light px-3">$</span>
+                    <input type="text" [(ngModel)]="formModel.product_price" name="product_price" class="form-control border-start-0 ps-0" placeholder="0.00" required>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Discount Percentage</label>
+                  <div class="input-group">
+                    <input type="text" [(ngModel)]="formModel.discount" name="discount" class="form-control border-end-0" placeholder="0">
+                    <span class="input-group-text border-start-0 fw-medium bg-light px-3">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-2">
+                <div class="col-md-6 mb-3 mb-md-0">
+                  <label class="form-label fw-medium">SKU</label>
+                  <input type="text" [(ngModel)]="formModel.sku" name="sku" class="form-control" placeholder="#SKU-0000">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Stock Quantity</label>
+                  <input type="text" [(ngModel)]="formModel.stock" name="stock" class="form-control" placeholder="0">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column (Sidebar) -->
+          <div class="col-lg-4">
+            <!-- Product Images Card -->
+            <div class="form-card admin-card mb-4 p-4 bg-white rounded-3 border">
+              <h5 class="fw-bold mb-3">Product Images</h5>
+
+              <div class="dropzone p-4 text-center border border-dashed rounded-3 bg-light mb-3">
+                <div class="icon-circle mb-2 mx-auto">
+                  <mat-icon class="fs-2 text-primary">cloud_upload</mat-icon>
+                </div>
+                <div class="fw-bold mb-1 text-dark">Click to upload or drag and drop</div>
+                <div class="small text-muted font-size-12">SVG, PNG, JPG or GIF (max. 3MB)</div>
+                <input type="file" (change)="onFileSelected($event)" multiple accept="image/*" class="form-control mt-3">
+              </div>
+
+              @if (existingImages.length > 0) {
+                @for (img of existingImages; track img) {
+                  <div class="uploaded-file d-flex align-items-center gap-3 p-2 border rounded-2 mb-2 bg-light">
+                    <img [src]="'/images/products/' + img" width="36" height="48" alt="Book cover" style="object-fit:cover;" class="rounded">
+                    <div class="file-details">
+                      <div class="fw-semibold font-size-14 text-dark text-truncate" style="max-width: 150px;">{{ img }}</div>
+                      <div class="text-muted font-size-12">Existing image</div>
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+
+            <!-- Organization Card -->
+            <div class="form-card admin-card p-4 bg-white rounded-3 border">
+              <h5 class="fw-bold mb-3">Organization</h5>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Category</label>
+                <select [(ngModel)]="formModel.category_id" name="category_id" class="form-select text-dark fw-medium" required>
+                  <option value="">Select Category</option>
+                  @for (cat of categories; track cat.category_id) {
+                    <option [value]="cat.category_id">{{ cat.category_name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Format</label>
+                <select [(ngModel)]="formModel.format" name="format" class="form-select text-dark fw-medium">
+                  <option value="Hardcover">Hardcover</option>
+                  <option value="Paperback">Paperback</option>
+                  <option value="E-book">E-book</option>
+                  <option value="Audiobook">Audiobook</option>
+                </select>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label fw-medium">Tags</label>
+                <div class="tags-input-container">
+                  <input type="text" [(ngModel)]="formModel.tags" name="tags" class="form-control" placeholder="Add tags (comma separated)...">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>

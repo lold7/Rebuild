@@ -1,0 +1,149 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Orders"></app-admin-topbar>
+
+    <!-- Page Header Area -->
+    <div class="d-flex align-items-center justify-content-between px-5 pt-5 pb-4">
+      <div>
+        <h2 class="m-0 fw-bold fs-3">Order Management</h2>
+        <p class="text-muted m-0 font-size-14 mt-1">Manage and fulfill customer book orders.</p>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-white border px-4 py-2 d-flex align-items-center gap-2 fw-medium text-dark bg-white shadow-sm">
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <div class="px-5 pb-5 pt-0" style="max-width: 1300px;">
+      <!-- Filter Bar Card -->
+      <div class="admin-card p-2 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm border-0">
+        <!-- Tabs -->
+        <div class="order-tabs d-flex align-items-center gap-1">
+          <button (click)="filterByStatus('')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === '' ? 'btn-primary' : 'btn-light'">All Orders</button>
+          <button (click)="filterByStatus('pending')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'pending' ? 'btn-primary' : 'btn-light'">Pending</button>
+          <button (click)="filterByStatus('completed')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'completed' ? 'btn-primary' : 'btn-light'">Completed</button>
+          <button (click)="filterByStatus('cancelled')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'cancelled' ? 'btn-primary' : 'btn-light'">Cancelled</button>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="d-flex align-items-center gap-3">
+          <div class="search-bar position-relative" style="width: 250px;">
+            <mat-icon class="position-absolute top-50 translate-middle-y ms-3 text-muted">search</mat-icon>
+            <input type="text" [(ngModel)]="searchQuery" class="form-control ps-5 text-dark" placeholder="Search order ID, customer...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Table Card -->
+      <div class="admin-card p-0 overflow-hidden border-0 shadow-sm rounded-4">
+        <div class="table-responsive">
+          <table class="table admin-table mb-0 align-middle table-hover">
+            <thead class="bg-white text-muted border-bottom">
+              <tr>
+                <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Order ID</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Customer</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Date</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Total</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Payment</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Status</th>
+                <th class="text-end pe-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em; font-size: 0.72rem;">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white">
+              @if (filteredOrders.length > 0) {
+                @for (order of filteredOrders; track order.order_id) {
+                  <tr>
+                    <td class="ps-4 py-3 border-bottom">
+                      <span class="fw-medium text-primary">#ORD-{{ ('' + order.order_id).padStart(3, '0') }}</span>
+                    </td>
+                    <td class="border-bottom">
+                      <div class="d-flex align-items-center gap-3">
+                        <div class="customer-avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                          {{ getInitials(order.username) }}
+                        </div>
+                        <h6 class="m-0 fw-medium font-size-14 text-dark">{{ order.username || 'Customer' }}</h6>
+                      </div>
+                    </td>
+                    <td class="text-secondary font-size-14 border-bottom">{{ order.created_at | date:'mediumDate' }}</td>
+                    <td class="text-dark font-size-14 fw-semibold border-bottom">${{ (+order.total_price).toFixed(2) }}</td>
+                    <td class="text-secondary font-size-14 border-bottom">{{ order.payment_method || 'N/A' }}</td>
+                    <td class="border-bottom">
+                      <select [ngModel]="order.status" (ngModelChange)="onStatusChange(order, $event)" class="form-select form-select-sm rounded-pill px-3 py-1 fw-normal border-0"
+                        [ngClass]="{
+                          'bg-success-subtle text-success': order.status === 'completed',
+                          'bg-danger-subtle text-danger': order.status === 'cancelled',
+                          'bg-warning-subtle text-warning': order.status === 'pending'
+                        }"
+                        style="cursor:pointer; width: auto; font-size: 0.8rem;">
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                    <td class="text-end pe-4 border-bottom">
+                      <button (click)="viewOrder(order)" class="btn btn-link text-decoration-none fw-medium text-primary font-size-14 p-0">
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                }
+              } @else {
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">No orders found.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
+          <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong>{{ filteredOrders.length }}</strong> results</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Order Detail Modal -->
+@if (selectedOrder) {
+  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Order #{{ selectedOrder.order_id }} Details</h5>
+          <button type="button" class="btn-close" (click)="closeOrderModal()"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1"><strong>Customer:</strong> {{ selectedOrder.username || 'Customer' }}</p>
+          <p class="mb-1"><strong>Date:</strong> {{ selectedOrder.created_at | date:'medium' }}</p>
+          <p class="mb-1"><strong>Total:</strong> ${{ (+selectedOrder.total_price).toFixed(2) }}</p>
+          <p class="mb-3"><strong>Payment:</strong> {{ selectedOrder.payment_method }}</p>
+
+          <h6 class="fw-bold border-top pt-3">Items:</h6>
+          @if (selectedOrder.items && selectedOrder.items.length > 0) {
+            <ul class="list-group list-group-flush">
+              @for (item of selectedOrder.items; track item.order_item_id) {
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                  <div>
+                    <span class="fw-semibold">{{ item.product_name }}</span>
+                    <br><small class="text-muted">Qty: {{ item.quantity }}</small>
+                  </div>
+                  <span class="fw-bold">${{ (+item.unit_price * item.quantity).toFixed(2) }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="text-muted small">No items breakdown available.</p>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" (click)="closeOrderModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

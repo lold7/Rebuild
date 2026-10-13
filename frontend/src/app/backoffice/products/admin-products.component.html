@@ -1,0 +1,107 @@
+<div class="admin-layout">
+  <app-admin-sidebar></app-admin-sidebar>
+
+  <main class="admin-main">
+    <app-admin-topbar title="Products"></app-admin-topbar>
+
+    <div class="p-4" style="max-width: 1400px;">
+      <!-- Page Header & Actions -->
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+          <h2 class="fw-bold mb-1 fs-3">Product Management</h2>
+          <p class="text-muted m-0 font-size-14">Manage your bookstore inventory efficiently</p>
+        </div>
+        <div class="d-flex gap-3">
+          <a routerLink="/backoffice/inventory" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
+            <mat-icon>add</mat-icon> Add New Product
+          </a>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="admin-card py-2 px-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3 border-0">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div class="d-flex align-items-center gap-2">
+            <select [(ngModel)]="selectedCategoryId" (change)="onCategoryChange()" class="form-select form-select-sm rounded-pill border py-1 px-3 font-size-14 bg-white text-muted" style="width: auto;">
+              <option value="">All Categories</option>
+              @for (cat of categories; track cat.category_id) {
+                <option [value]="cat.category_id">{{ cat.category_name }}</option>
+              }
+            </select>
+          </div>
+          @if (selectedCategoryId) {
+            <button (click)="clearFilter()" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill py-2 px-3 fw-normal font-size-12 d-flex align-items-center gap-2 text-decoration-none">
+              Clear Filter <mat-icon class="text-primary fs-6 position-relative" style="cursor:pointer; top:1px;">close</mat-icon>
+            </button>
+          }
+        </div>
+        <button (click)="loadProducts()" class="btn btn-link text-muted p-0 ms-auto text-decoration-none border-0" aria-label="Refresh">
+          <mat-icon class="fs-5">refresh</mat-icon>
+        </button>
+      </div>
+
+      <!-- Table Container -->
+      <div class="admin-card p-0 overflow-hidden border-0">
+        <div class="table-responsive">
+          <table class="table admin-table mb-0 align-middle table-hover">
+            <thead class="bg-white text-muted border-bottom">
+              <tr>
+                <th class="ps-4 text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Image</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Product Name</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Category</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Price</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Attributes</th>
+                <th class="pe-4 text-end text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (products.length > 0) {
+                @for (p of products; track p.product_id) {
+                  <tr>
+                    <td class="ps-4">
+                      <div class="bg-light rounded p-2 d-flex align-items-center justify-content-center" style="width: 48px; height: 64px;">
+                        @if (getFirstImage(p.product_images)) {
+                          <img [src]="getFirstImage(p.product_images)" [alt]="p.product_name" class="img-fluid rounded shadow-sm" style="object-fit:cover; width: 100%; height: 100%;">
+                        } @else {
+                          <mat-icon class="text-muted">image</mat-icon>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <h6 class="m-0 fw-bold font-size-14 mb-1">{{ p.product_name }}</h6>
+                      <small class="text-muted" style="font-size:0.75rem;">ID: #{{ p.product_id }}</small>
+                    </td>
+                    <td>
+                      <span class="badge rounded-pill fw-normal" style="background-color: #e0f2fe; color: #0284c7; padding: 0.35rem 0.7rem;">
+                        {{ p.category_name || 'N/A' }}
+                      </span>
+                    </td>
+                    <td class="fw-medium text-dark">${{ (+p.product_price).toFixed(2) }}</td>
+                    <td class="text-muted font-size-14">{{ getAttributes(p.product_attributes) }}</td>
+                    <td class="pe-4 text-end">
+                      <a [routerLink]="['/backoffice/inventory', p.product_id]" class="btn btn-link text-muted p-1 me-2 text-decoration-none">
+                        <mat-icon>edit</mat-icon>
+                      </a>
+                      <button (click)="deleteProduct(p)" class="btn btn-link text-muted p-1 text-decoration-none">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              } @else {
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No products found.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
+          <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong>{{ products.length }}</strong> results</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
