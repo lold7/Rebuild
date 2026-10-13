@@ -1,0 +1,155 @@
+.wishlist-hero {
+  padding: 4rem 0 3rem;
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+  }
+  p {
+    color: #6c757d;
+    font-size: 1.05rem;
+    margin-top: 0.5rem;
+  }
+}
+
+.product-section {
+  padding: 3rem 0 4rem;
+  .section-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.05em;
+  }
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+  .section-desc {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+    max-width: 700px;
+  }
+}
+
+.stat-number {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+.stat-label {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.features-section {
+  background-color: #eef1f6;
+  padding: 4rem 0;
+  .section-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.05em;
+  }
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+  .section-desc {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+  }
+}
+
+.action-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 1rem;
+  padding: 2.5rem 2rem 2rem;
+  height: 100%;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+  }
+  .card-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.04em;
+  }
+  h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 0.4rem;
+    line-height: 1.3;
+  }
+  p {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+}
+
+.testimonial-section {
+  padding: 4rem 0;
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .subtitle {
+    color: #6c757d;
+    font-size: 0.95rem;
+  }
+}
+
+.testimonial-card {
+  border: 1px solid #e9ecef;
+  border-radius: 1rem;
+  padding: 2rem;
+  background: #fff;
+  .quote {
+    font-size: 0.95rem;
+    font-style: italic;
+    color: #333;
+    line-height: 1.6;
+  }
+  .author-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .author-role {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+  .view-link {
+    font-weight: 600;
+    text-decoration: none;
+    color: #1a1a1a;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: gap 0.2s;
+    &:hover {
+      gap: 0.6rem;
+      color: #3b5bdb;
+    }
+  }
+}
+
+@media (max-width: 767.98px) {
+  .wishlist-hero h1 { font-size: 2rem; }
+  .product-section h2,
+  .features-section h2,
+  .testimonial-section h2 { font-size: 1.5rem; }
+  .action-card { padding: 2rem 1.5rem 1.5rem; }
+  .action-card h3 { font-size: 1.25rem; }
+  .stat-number { font-size: 1.8rem; }
+}
