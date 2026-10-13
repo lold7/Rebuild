@@ -1,0 +1,50 @@
+.indicator-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #dee2e6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &.active {
+    background-color: #1a1a1a;
+    width: 24px;
+    border-radius: 10px !important;
+  }
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+  position: absolute;
+  top: 40%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  z-index: 10;
+}
+
+.carousel-control-prev {
+  left: -20px;
+}
+
+.carousel-control-next {
+  right: -20px;
+}
+
+.category-card {
+  height: 350px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15) !important;
+  }
+}
+
+.book-card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+  }
+}
