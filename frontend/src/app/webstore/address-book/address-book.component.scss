@@ -1,0 +1,53 @@
+.address-hero {
+  padding: 4rem 0 2rem;
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+  }
+  p {
+    color: #6c757d;
+    font-size: 1.05rem;
+  }
+}
+
+.primary-address {
+  padding: 2rem 0;
+  text-align: center;
+  .badge-primary {
+    display: inline-block;
+    background-color: #e7f5ff;
+    color: #1971c2;
+    padding: 0.35rem 0.8rem;
+    border-radius: 50rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+  .address-detail {
+    color: #6c757d;
+  }
+}
+
+.address-entry {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.75rem;
+  .entry-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+  }
+  h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .entry-detail {
+    font-size: 0.9rem;
+    color: #495057;
+  }
+}
