@@ -20,7 +20,7 @@ public class AdminProductRepository {
     private final RowMapper<InventoryAdjustmentResponse> adjustments = (rs, row) -> new InventoryAdjustmentResponse(
         rs.getLong("adjustment_id"), rs.getLong("product_id"), rs.getObject("admin_user_id", Long.class),
         rs.getInt("quantity_before"), rs.getInt("quantity_after"), rs.getLong("delta"), rs.getString("reason"),
-        rs.getObject("created_at", OffsetDateTime.class));
+        rs.getObject("created_at", OffsetDateTime.class), rs.getObject("order_id", Long.class));
 
     public AdminProductRepository(JdbcTemplate jdbc, ProductRowMapper products) {
         this.jdbc = jdbc;

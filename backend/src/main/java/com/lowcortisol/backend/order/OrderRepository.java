@@ -65,13 +65,19 @@ public class OrderRepository {
         if (pageHeaders.isEmpty()) return List.of();
 
         // Fetch all page items together rather than issuing one query per order.
-        String placeholders = String.join(",", Collections.nCopies(pageHeaders.size(), "?"));
+        Map<Long, List<OrderItemResponse>> grouped = itemsForOrders(pageHeaders.stream().map(OrderHeader::id).toList());
+        return pageHeaders.stream().map(header -> response(header, grouped.getOrDefault(header.id(), List.of()))).toList();
+    }
+
+    public Map<Long, List<OrderItemResponse>> itemsForOrders(List<Long> orderIds) {
+        if (orderIds.isEmpty()) return Map.of();
+        String placeholders = String.join(",", Collections.nCopies(orderIds.size(), "?"));
         var rows = jdbc.query("SELECT * FROM order_items WHERE order_id IN (" + placeholders + ") ORDER BY order_id, order_item_id",
             (rs, row) -> Map.entry(rs.getLong("order_id"), items.mapRow(rs, row)),
-            pageHeaders.stream().map(OrderHeader::id).toArray());
+            orderIds.toArray());
         Map<Long, List<OrderItemResponse>> grouped = new HashMap<>();
         rows.forEach(row -> grouped.computeIfAbsent(row.getKey(), ignored -> new ArrayList<>()).add(row.getValue()));
-        return pageHeaders.stream().map(header -> response(header, grouped.getOrDefault(header.id(), List.of()))).toList();
+        return grouped;
     }
 
     long insert(long userId, Long addressId, Long savedPaymentMethodId, String key, String fingerprint,
