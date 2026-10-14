@@ -15,14 +15,16 @@ public class PasswordRecoveryService {
     private final PasswordResetRepository resets;
     private final PasswordResetDelivery delivery;
     private final PasswordEncoder encoder;
+    private final AccountSecurityRepository security;
     private final SecureRandom random = new SecureRandom();
 
     public PasswordRecoveryService(UserRepository users, PasswordResetRepository resets,
-        PasswordResetDelivery delivery, PasswordEncoder encoder) {
+        PasswordResetDelivery delivery, PasswordEncoder encoder, AccountSecurityRepository security) {
         this.users = users;
         this.resets = resets;
         this.delivery = delivery;
         this.encoder = encoder;
+        this.security = security;
     }
 
     @Transactional
@@ -50,7 +52,7 @@ public class PasswordRecoveryService {
         UserAccount user = users.lockById(userId).orElseThrow(InvalidPasswordResetException::new);
         if (!resets.consumeToken(userId, tokenHash)) throw new InvalidPasswordResetException();
         users.updatePassword(userId, encoder.encode(newPassword));
-        resets.revokeLoginState(user.email());
+        security.revokeLoginState(user.email());
         return user.email();
     }
 

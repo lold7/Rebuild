@@ -42,6 +42,14 @@ public class UserRepository {
         jdbc.update("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", passwordHash, userId);
     }
 
+    UserAccount updateProfile(long userId, String username, String email, String phone) {
+        return jdbc.queryForObject("""
+            UPDATE users SET username = ?, email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ? RETURNING *
+            """, mapper, username.trim(), normalizeEmail(email),
+            phone == null || phone.isBlank() ? null : phone.trim(), userId);
+    }
+
     UserAccount create(String username, String email, String passwordHash, String phone, UserRole role) {
         return jdbc.queryForObject("""
             INSERT INTO users (username, email, password_hash, phone, role)

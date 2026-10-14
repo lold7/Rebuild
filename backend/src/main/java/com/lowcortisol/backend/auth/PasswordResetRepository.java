@@ -31,8 +31,7 @@ public class PasswordResetRepository {
             userId, tokenHash) == 1;
     }
 
-    void revokeLoginState(String email) {
-        jdbc.update("DELETE FROM persistent_logins WHERE username = ?", email);
-        jdbc.update("DELETE FROM spring_session WHERE principal_name = ?", email);
+    void deleteTokensForUser(long userId) {
+        jdbc.update("DELETE FROM password_resets WHERE user_id = ?", userId);
     }
 }

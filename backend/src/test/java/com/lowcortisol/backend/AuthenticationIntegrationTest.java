@@ -7,6 +7,8 @@ import com.lowcortisol.backend.auth.AdminService;
 import com.lowcortisol.backend.auth.BootstrapAdmin;
 import com.lowcortisol.backend.auth.PasswordResetDelivery;
 import com.lowcortisol.backend.auth.PasswordResetDeliveryException;
+import com.lowcortisol.backend.auth.ProfileService;
+import com.lowcortisol.backend.auth.ProfileUpdateRequest;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpCookie;
@@ -33,6 +35,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -72,6 +76,7 @@ class AuthenticationIntegrationTest {
     @Autowired PasswordEncoder encoder;
     @Autowired BootstrapAdmin bootstrap;
     @Autowired AdminService admins;
+    @Autowired ProfileService profiles;
     @MockitoSpyBean PasswordResetDelivery delivery;
 
     @BeforeEach
@@ -79,6 +84,235 @@ class AuthenticationIntegrationTest {
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM users");
+    }
+
+    @Test
+    void customerCanReadAndUpdateNameAndPhoneWithoutLosingLogin() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        String pendingReset = requestReset(browser, "alice@example.com");
+        HttpResponse<String> profile = browser.get("/api/account/profile");
+        assertThat(profile.statusCode()).isEqualTo(200);
+        assertThat(mapper.readTree(profile.body()).get("email").asText()).isEqualTo("alice@example.com");
+        assertThat(mapper.readTree(profile.body()).has("passwordHash")).isFalse();
+        HttpResponse<String> update = browser.post("/api/account/profile", Map.of(
+            "username", " Alice Updated ", "email", "ALICE@example.com", "phone", " 0899999999 "));
+        assertThat(update.statusCode()).isEqualTo(200);
+        JsonNode result = mapper.readTree(update.body());
+        assertThat(result.get("reauthenticationRequired").asBoolean()).isFalse();
+        assertThat(result.get("user").get("username").asText()).isEqualTo("Alice Updated");
+        assertThat(result.get("user").get("phone").asText()).isEqualTo("0899999999");
+        assertThat(result.get("user").get("role").asText()).isEqualTo("customer");
+        assertThat(result.get("user").has("passwordHash")).isFalse();
+        assertThat(jdbc.queryForObject("SELECT username FROM users", String.class)).isEqualTo("Alice Updated");
+        assertThat(browser.get(resetPath(pendingReset)).statusCode()).isEqualTo(200);
+        browser.removeCookie("SESSION");
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "Alice Updated", "email", "alice@example.com"))
+            .statusCode()).isEqualTo(200);
+        assertThat(mapper.readTree(browser.get("/api/account/profile").body()).get("phone").isNull()).isTrue();
+    }
+
+    @Test
+    void adminCanReadAndUpdateOwnProfile() throws Exception {
+        Browser browser = loggedInAdmin();
+        assertThat(browser.get("/api/admin/profile").statusCode()).isEqualTo(200);
+        HttpResponse<String> response = browser.post("/api/admin/profile", Map.of(
+            "username", "Updated Admin", "email", "ADMIN@example.com", "phone", "0822222222"));
+        assertThat(response.statusCode()).isEqualTo(200);
+        JsonNode result = mapper.readTree(response.body());
+        assertThat(result.get("reauthenticationRequired").asBoolean()).isFalse();
+        assertThat(result.get("user").get("role").asText()).isEqualTo("admin");
+        assertThat(mapper.readTree(browser.get("/api/admin/auth/me").body()).get("username").asText()).isEqualTo("Updated Admin");
+        assertThat(jdbc.queryForObject("SELECT phone FROM users", String.class)).isEqualTo("0822222222");
+    }
+
+    @Test
+    void profileRoutesRequireAuthenticationAndCorrectRole() throws Exception {
+        Browser guest = new Browser();
+        for (String path : new String[] {"/api/account/profile", "/api/admin/profile"}) {
+            assertThat(guest.get(path).statusCode()).isEqualTo(401);
+            assertThat(guest.post(path, profileChanges("alice@example.com")).statusCode()).isEqualTo(401);
+        }
+        assertThat(guest.post("/api/account/password", changePassword("correct-password", "changed-password")).statusCode()).isEqualTo(401);
+        assertThat(guest.post("/api/admin/password", changePassword("correct-password", "changed-password")).statusCode()).isEqualTo(401);
+        Browser customer = registeredBrowser();
+        assertThat(customer.post("/api/auth/login", login(false)).statusCode()).isEqualTo(200);
+        assertThat(customer.get("/api/admin/profile").statusCode()).isEqualTo(403);
+        assertThat(customer.post("/api/admin/profile", profileChanges("alice@example.com")).statusCode()).isEqualTo(403);
+        assertThat(customer.post("/api/admin/password", changePassword("correct-password", "changed-password")).statusCode()).isEqualTo(403);
+        Browser admin = loggedInAdmin();
+        assertThat(admin.get("/api/account/profile").statusCode()).isEqualTo(403);
+        assertThat(admin.post("/api/account/profile", profileChanges("admin@example.com")).statusCode()).isEqualTo(403);
+        assertThat(admin.post("/api/account/password", changePassword("correct-password", "changed-password")).statusCode()).isEqualTo(403);
+    }
+
+    @Test
+    void profileValidationCsrfAndAccountInjectionAreRejected() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/login", login(false)).statusCode()).isEqualTo(200);
+        assertThat(browser.post("/api/account/profile", Map.of("username", " ", "email", "alice@example.com")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "Alice", "email", "bad-email")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "a".repeat(101), "email", "alice@example.com")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "Alice", "email", "alice@example.com", "phone", "1".repeat(21)))
+            .statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "Alice", "email", "alice@example.com", "role", "admin"))
+            .statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/profile", Map.of("username", "Alice", "email", "alice@example.com", "userId", 999))
+            .statusCode()).isEqualTo(400);
+        assertThat(browser.sendPost("/api/account/profile", profileChanges("alice@example.com"), null).statusCode()).isEqualTo(403);
+        assertThat(jdbc.queryForObject("SELECT username FROM users", String.class)).isEqualTo("Alice");
+        assertThat(jdbc.queryForObject("SELECT role FROM users", String.class)).isEqualTo("customer");
+    }
+
+    @Test
+    void customerEmailChangeRevokesOldIdentityAndRequiresLoginWithNewEmail() throws Exception {
+        Browser first = registeredBrowser();
+        Browser second = new Browser();
+        assertThat(first.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        assertThat(second.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        long originalId = jdbc.queryForObject("SELECT user_id FROM users", Long.class);
+        String pendingReset = requestReset(first, "alice@example.com");
+        Browser other = new Browser();
+        assertThat(other.post("/api/auth/register", registration("other@example.com")).statusCode()).isEqualTo(201);
+        assertThat(other.post("/api/auth/login", Map.of("email", "other@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
+        HttpResponse<String> update = first.post("/api/account/profile", profileChanges("NEW@example.com"));
+        assertThat(update.statusCode()).isEqualTo(200);
+        JsonNode result = mapper.readTree(update.body());
+        assertThat(result.get("reauthenticationRequired").asBoolean()).isTrue();
+        assertThat(result.get("user").get("email").asText()).isEqualTo("new@example.com");
+        assertThat(result.get("user").get("userId").asLong()).isEqualTo(originalId);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session WHERE principal_name = 'alice@example.com'", Integer.class)).isZero();
+        assertThat(first.get("/api/account/profile").statusCode()).isEqualTo(401);
+        assertThat(first.get(resetPath(pendingReset)).statusCode()).isEqualTo(400);
+        assertThat(other.get("/api/account/profile").statusCode()).isEqualTo(200);
+        assertThat(first.post("/api/auth/login", login(false)).statusCode()).isEqualTo(401);
+        assertThat(first.post("/api/auth/login", Map.of("email", "new@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
+        assertThat(first.get("/api/account/profile").statusCode()).isEqualTo(200);
+        // Reusing the released email cannot make the old remembered cookie authenticate a new account.
+        Browser replacement = new Browser();
+        assertThat(replacement.post("/api/auth/register", registration("alice@example.com")).statusCode()).isEqualTo(201);
+        assertThat(second.get("/api/account/profile").statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void adminEmailChangeKeepsAdminRoleAndUsesNewCredentials() throws Exception {
+        Browser admin = loggedInAdmin();
+        HttpResponse<String> response = admin.post("/api/admin/profile", profileChanges("new-admin@example.com"));
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(mapper.readTree(response.body()).get("reauthenticationRequired").asBoolean()).isTrue();
+        assertThat(admin.get("/api/admin/profile").statusCode()).isEqualTo(401);
+        assertThat(admin.post("/api/admin/auth/login", adminLogin()).statusCode()).isEqualTo(401);
+        assertThat(admin.post("/api/admin/auth/login", Map.of("email", "new-admin@example.com", "password", "correct-password")).statusCode())
+            .isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT role FROM users", String.class)).isEqualTo("admin");
+    }
+
+    @Test
+    void duplicateEmailRollsBackProfileAndPreservesLoginAndResetState() throws Exception {
+        Browser browser = registeredBrowser();
+        seedAdmin();
+        assertThat(browser.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        String pendingReset = requestReset(browser, "alice@example.com");
+        HttpResponse<String> response = browser.post("/api/account/profile", profileChanges("ADMIN@example.com"));
+        assertThat(response.statusCode()).isEqualTo(409);
+        assertThat(mapper.readTree(response.body()).get("code").asText()).isEqualTo("EMAIL_IN_USE");
+        assertThat(jdbc.queryForObject("SELECT username FROM users WHERE email = 'alice@example.com'", String.class)).isEqualTo("Alice");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins", Integer.class)).isEqualTo(1);
+        assertThat(browser.get(resetPath(pendingReset)).statusCode()).isEqualTo(200);
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+        browser.removeCookie("SESSION");
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void incorrectCurrentPasswordDoesNotChangeOrRevokeAccountState() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        String pendingReset = requestReset(browser, "alice@example.com");
+        HttpResponse<String> response = browser.post("/api/account/password", changePassword("wrong-password", "changed-password"));
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(mapper.readTree(response.body()).get("code").asText()).isEqualTo("INCORRECT_CURRENT_PASSWORD");
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+        assertThat(browser.get(resetPath(pendingReset)).statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins", Integer.class)).isEqualTo(1);
+        assertThat(encoder.matches("correct-password", jdbc.queryForObject("SELECT password_hash FROM users", String.class))).isTrue();
+    }
+
+    @Test
+    void passwordChangeEnforcesConfirmationLimitsAndCsrf() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/login", login(false)).statusCode()).isEqualTo(200);
+        assertThat(browser.post("/api/account/password", Map.of("currentPassword", "correct-password", "newPassword", "changed-password",
+            "confirmPassword", "mismatch-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/password", changePassword("correct-password", "short")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/password", changePassword("correct-password", "\u00e9".repeat(37))).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/password", changePassword("\u00e9".repeat(37), "changed-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/account/password", Map.of("currentPassword", "correct-password", "newPassword", "changed-password"))
+            .statusCode()).isEqualTo(400);
+        assertThat(browser.sendPost("/api/account/password", changePassword("correct-password", "changed-password"), null).statusCode()).isEqualTo(403);
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+        assertThat(encoder.matches("correct-password", jdbc.queryForObject("SELECT password_hash FROM users", String.class))).isTrue();
+    }
+
+    @Test
+    void customerPasswordChangeRevokesAllOwnSessionsRememberedLoginsAndResetLinks() throws Exception {
+        Browser first = registeredBrowser();
+        Browser second = new Browser();
+        assertThat(first.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        assertThat(second.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        String pendingReset = requestReset(first, "alice@example.com");
+        Browser other = new Browser();
+        assertThat(other.post("/api/auth/register", registration("other@example.com")).statusCode()).isEqualTo(201);
+        assertThat(other.post("/api/auth/login", Map.of("email", "other@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
+        assertThat(first.post("/api/account/password", changePassword("correct-password", "changed-password")).statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM password_resets", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session WHERE principal_name = 'alice@example.com'", Integer.class)).isZero();
+        assertThat(first.get("/api/account/profile").statusCode()).isEqualTo(401);
+        assertThat(second.get("/api/account/profile").statusCode()).isEqualTo(401);
+        assertThat(first.get(resetPath(pendingReset)).statusCode()).isEqualTo(400);
+        assertThat(other.get("/api/account/profile").statusCode()).isEqualTo(200);
+        assertThat(first.post("/api/auth/login", login(false)).statusCode()).isEqualTo(401);
+        assertThat(first.post("/api/auth/login", Map.of("email", "alice@example.com", "password", "changed-password")).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void adminPasswordChangeVerifiesCurrentPasswordAndKeepsRole() throws Exception {
+        Browser browser = loggedInAdmin();
+        String pendingReset = requestReset(browser, "admin@example.com");
+        assertThat(browser.post("/api/admin/password", changePassword("incorrect-password", "changed-admin-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/admin/password", changePassword("correct-password", "changed-admin-password")).statusCode()).isEqualTo(200);
+        assertThat(browser.get("/api/admin/profile").statusCode()).isEqualTo(401);
+        assertThat(browser.get(resetPath(pendingReset)).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/admin/auth/login", adminLogin()).statusCode()).isEqualTo(401);
+        assertThat(browser.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "changed-admin-password")).statusCode())
+            .isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT role FROM users", String.class)).isEqualTo("admin");
+    }
+
+    @Test
+    void profileServiceCannotReadOrUpdateAnotherIdentity() throws Exception {
+        registeredBrowser();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
+            java.util.List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
+        try {
+            assertThat(profiles.currentProfile("alice@example.com").email()).isEqualTo("alice@example.com");
+            assertThatThrownBy(() -> profiles.currentProfile("another@example.com")).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> profiles.updateProfile("another@example.com", new ProfileUpdateRequest("Changed", "new@example.com", null)))
+                .isInstanceOf(AccessDeniedException.class);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private Map<String, Object> profileChanges(String email) {
+        return Map.of("username", "Updated Name", "email", email, "phone", "0899999999");
+    }
+
+    private Map<String, Object> changePassword(String current, String next) {
+        return Map.of("currentPassword", current, "newPassword", next, "confirmPassword", next);
     }
 
     @Test
