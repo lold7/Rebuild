@@ -16,9 +16,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
@@ -26,6 +28,8 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @PreAuthorize("hasRole('CUSTOMER') && #email == authentication.name")
 public class OrderService {
+    private static final int HISTORY_PAGE_SIZE = 15;
+    private static final Set<String> ORDER_STATUSES = Set.of("pending", "completed", "cancelled");
     private final CustomerAccountRepository customers;
     private final CartService cart;
     private final AddressService addresses;
@@ -78,6 +82,27 @@ public class OrderService {
     public OrderResponse get(String email, long id) {
         if (id < 1) throw OrderException.invalid("Invalid order ID");
         return orders.response(orders.owned(customers.customerId(email, false), id).orElseThrow(OrderException::notFound));
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public OrderPage history(String email, String page, String status) {
+        int pageNumber;
+        try {
+            if (page == null || !page.matches("[0-9]+")) throw new NumberFormatException();
+            pageNumber = Integer.parseInt(page);
+            if (pageNumber < 1) throw new NumberFormatException();
+        } catch (NumberFormatException exception) {
+            throw OrderException.invalid("page must be a positive integer no greater than 2147483647");
+        }
+        String filter = status == null ? null : status.trim().toLowerCase(Locale.ROOT);
+        if (filter != null && !ORDER_STATUSES.contains(filter)) {
+            throw OrderException.invalid("status must be pending, completed, or cancelled");
+        }
+        long userId = customers.customerId(email, false);
+        long total = orders.historyCount(userId, filter);
+        var results = orders.history(userId, pageNumber, HISTORY_PAGE_SIZE, filter);
+        long totalPages = total / HISTORY_PAGE_SIZE + (total % HISTORY_PAGE_SIZE == 0 ? 0 : 1);
+        return new OrderPage(results, pageNumber, HISTORY_PAGE_SIZE, total, totalPages);
     }
 
     private AddressResponse address(String email, Long id) {

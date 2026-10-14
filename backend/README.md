@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, and order creation as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, and customer order history as JSON APIs.
 
 ## Run with Docker
 
@@ -84,6 +84,7 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | GET | `/api/checkout` | Customer only. Previews the current cart, addresses, saved cards, payment choices, and checkout readiness. |
 | POST | `/api/orders` | Customer only. Creates a pending, unpaid order from the current cart; requires `Idempotency-Key` and CSRF headers. |
 | GET | `/api/orders/{id}` | Customer only. Retrieves an owned order with its saved shipping, product, price, and payment metadata. |
+| GET | `/api/account/orders` | Customer only. Lists owned orders, newest first, 15 per page; accepts `page` and optional `status`. |
 
 Registration body:
 
@@ -448,7 +449,48 @@ const orderResponse = await fetch(`${API}/api/orders/${order.orderId}`, { creden
 console.log(await orderResponse.json());
 ```
 
-Snapshots preserve the order's shipping fields, masked payment metadata, product details, formats, and prices after catalog edits or deletion of the original address/card/product. Orders survive logout and email/password changes. These endpoints create pending, unpaid orders and deduct stock immediately. Payment-provider processing, order-history listing, cancellation/refunds/restocking, and fulfillment are separate features. The original frontend's snake_case order payload and checkout response need adaptation to this camelCase API contract.
+Snapshots preserve the order's shipping fields, masked payment metadata, product details, formats, and prices after catalog edits or deletion of the original address/card/product. Orders survive logout and email/password changes. These endpoints create pending, unpaid orders and deduct stock immediately. Payment-provider processing, cancellation/refunds/restocking, and fulfillment are separate features. The original frontend's snake_case order payload and checkout response need adaptation to this camelCase API contract.
+
+## Customer order history
+
+GET `/api/account/orders` lists the signed-in customer's orders with the same complete `OrderResponse` used by GET `/api/orders/{id}`. Each order contains its ID/date, current order and payment statuses, payment choice, USD total, shipping snapshot, optional masked saved-card snapshot, and ordered items with product details/images, selected formats, quantities, unit prices, and line totals. Items and totals describe the purchase at order creation, independent of later catalog prices, visibility, or deleted source records.
+
+Query parameters:
+
+| Parameter | Behavior |
+| --- | --- |
+| `page` | One-based page number, default `1`; positive integer up to `2147483647`. |
+| `status` | Optional `pending`, `completed`, or `cancelled`; ignores case and surrounding whitespace. Omit to include all statuses. |
+
+Response envelope:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 15,
+  "totalItems": 0,
+  "totalPages": 0
+}
+```
+
+`items` contains full orders when purchases exist. `totalItems` counts matching orders for this customer, while each order's own `totalItems` counts its item lines. Pages contain at most 15 orders, sorted by `createdAt` descending and then order ID descending. The count and all page contents use one consistent PostgreSQL snapshot per request. A new account or unmatched filter returns an empty page and zero totals. An out-of-range positive page returns an empty list while preserving the matching totals and requested page number. Invalid page/status values return `400` with `INVALID_ORDER_REQUEST`; `all` and payment states such as `paid` are not order-status filters.
+
+History access requires a customer session; guests receive `401` and admins receive `403`. Ownership is derived from the authenticated account, so URL parameters cannot select another customer's history. History reads do not modify orders, carts, stock, or payment state. Full order details remain available at `/api/orders/{id}`, with identical `404` responses for missing and foreign orders. History survives logout and email/password changes because orders reference the stable user ID.
+
+Example for a logged-in customer:
+
+```javascript
+const query = new URLSearchParams({ page: '1', status: 'completed' });
+const response = await fetch(`${API}/api/account/orders?${query}`, {
+  credentials: 'include'
+});
+if (!response.ok) throw new Error('Unable to load order history');
+const history = await response.json();
+console.log(history.items, history.totalPages);
+```
+
+Order items for each page are fetched in one batch. Existing owner/newest and order-item indexes support unfiltered history; V9 adds an owner/status/newest index for filtered queries. Existing orders are immediately included after the migration. The original frontend expects an unpaged snake_case array; its order service must consume `response.items`, map the camelCase order fields, and add pagination controls to display all pages.
 
 ## Admin authentication and authorization
 
@@ -673,7 +715,9 @@ await apiPost('/api/auth/logout');
 
 `V8__checkout_and_orders.sql` adds `orders` and `order_items`. Orders reference users, optionally retain source address/card references with `ON DELETE SET NULL`, and store immutable JSONB shipping/payment snapshots, USD decimal totals, statuses, a SHA-256 request fingerprint, and a unique customer/idempotency key. Order items cascade with their order, retain JSONB product/format snapshots, permit source product deletion, enforce quantity/price limits, and generate line totals from quantity × unit price. Owner/newest and foreign-key indexes support lookups. Flyway applies V8 automatically without changing earlier migrations.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V8 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V9__customer_order_history.sql` adds `orders_user_status_newest_idx` on `(user_id, status, created_at DESC, order_id DESC)`. It supports customer-scoped, status-filtered history without changing existing order data or earlier migrations.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V9 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -730,3 +774,5 @@ The merge regression test starts with an address-branch database at V6 without V
 Payment method tests verify empty lists, normalized masked metadata, type filtering, default ordering/selection, expiry-month boundaries, expired default replacement, removal/promotion and last-active-card protection, ownership and role restrictions, CSRF, raw-card-field rejection, service validation/authorization, database constraints, persistence across account changes, cascading deletion, and concurrent additions/default selections/removals against PostgreSQL.
 
 Checkout/order tests verify nonmutating previews, default/explicit shipping, saved-card selection, current-price totals, format aggregation, stock deduction, owned cart clearing, snapshots surviving source deletion, idempotent retries, ownership/roles/CSRF/CORS, validation and total/status injection rejection, invalid/expired/currency-mismatched selections, database constraints, account-change persistence, simulated storage-failure rollback and retry, concurrent duplicate submissions, and competing-customer stock/deadlock protection against PostgreSQL.
+
+Order history tests verify empty history, bounded paging, timestamp/ID ordering, customer-scoped totals and normalized status filtering, invalid input, guest/admin/service restrictions, attempted owner injection, correctly grouped full item details, historical shipping/product/masked-card snapshots after source deletion, unchanged stock/cart/payment state, persistence after account changes, and consistent count/page contents when an order is committed during a request.
