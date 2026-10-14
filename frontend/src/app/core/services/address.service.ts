@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Address } from '../models/models';
+import { mapAddress, toAddressRequest } from '../models/mappers';
 
 @Injectable({
   providedIn: 'root'
@@ -11,23 +12,24 @@ export class AddressService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/account/addresses`;
 
+  private book = (res: any): Address[] => (res?.addresses ?? []).map(mapAddress);
+
+  /** Saved addresses, default first. */
   getAddresses(): Observable<Address[]> {
-    return this.http.get<Address[]>(this.apiUrl);
+    return this.http.get<any>(this.apiUrl).pipe(map(this.book));
   }
 
   addAddress(data: Partial<Address>): Observable<{ success: boolean; address_id: number }> {
-    return this.http.post<{ success: boolean; address_id: number }>(this.apiUrl, data);
+    return this.http.post<any>(`${this.apiUrl}/add`, toAddressRequest(data)).pipe(
+      map(res => ({ success: true, address_id: res?.addressId }))
+    );
   }
 
-  updateAddress(id: number, data: Partial<Address>): Observable<{ success: boolean }> {
-    return this.http.put<{ success: boolean }>(`${this.apiUrl}/${id}`, data);
+  deleteAddress(id: number): Observable<Address[]> {
+    return this.http.post<any>(`${this.apiUrl}/delete/${id}`, {}).pipe(map(this.book));
   }
 
-  deleteAddress(id: number): Observable<{ success: boolean }> {
-    return this.http.delete<{ success: boolean }>(`${this.apiUrl}/${id}`);
-  }
-
-  setDefaultAddress(id: number): Observable<{ success: boolean }> {
-    return this.http.put<{ success: boolean }>(`${this.apiUrl}/${id}/default`, {});
+  setDefaultAddress(id: number): Observable<Address[]> {
+    return this.http.post<any>(`${this.apiUrl}/default/${id}`, {}).pipe(map(this.book));
   }
 }

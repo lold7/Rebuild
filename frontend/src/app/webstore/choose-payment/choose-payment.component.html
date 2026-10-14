@@ -2,7 +2,9 @@
   <div class="container">
     <h1>Payment methods</h1>
     <p>Manage your saved payment options for secure and fast checkout.</p>
-    <h3 class="fw-bold mt-3">Order Total: <span class="text-primary">${{ total.toFixed(2) }}</span></h3>
+    @if (!manageMode) {
+      <h3 class="fw-bold mt-3">Order Total: <span class="text-primary">${{ total.toFixed(2) }}</span></h3>
+    }
   </div>
 </section>
 
@@ -19,38 +21,110 @@
       }
     </div>
 
-    <!-- Card Entry -->
-    <div class="card-entry mx-auto text-start d-flex align-items-center flex-column flex-md-row gap-4">
-      <div class="card-icon d-flex align-items-center justify-content-center">
-        <div style="display:flex;">
-          <div style="width: 40px; height: 40px; background: #eb001b; border-radius: 50%;"></div>
-          <div style="width: 40px; height: 40px; background: #f79e1b; border-radius: 50%; margin-left: -15px;"></div>
+    @if (isCardTab) {
+      @for (card of visibleCards; track card.payment_method_id) {
+        <!-- Card Entry -->
+        <div class="card-entry mx-auto text-start d-flex align-items-center flex-column flex-md-row gap-4 mb-3"
+          [class.border-primary]="!manageMode && selectedCardId === card.payment_method_id"
+          [style.cursor]="manageMode ? 'default' : 'pointer'"
+          (click)="!manageMode && selectCard(card)">
+          <div class="card-icon d-flex align-items-center justify-content-center">
+            <div style="display:flex;">
+              <div style="width: 40px; height: 40px; background: #eb001b; border-radius: 50%;"></div>
+              <div style="width: 40px; height: 40px; background: #f79e1b; border-radius: 50%; margin-left: -15px;"></div>
+            </div>
+          </div>
+          <div class="flex-grow-1">
+            <span class="card-brand">{{ brandName(card.brand) }} &middot; {{ card.type === 'DEBIT' ? 'Debit' : 'Credit' }}</span>
+            <h4>Ending in {{ card.last4 }}. expires {{ expiryText(card) }}.@if (card.is_default) { This is your default payment method.}@if (card.expired) { This card has expired.}</h4>
+            <span class="card-badge">{{ card.currency }}</span>
+            @if (!manageMode && selectedCardId === card.payment_method_id) {
+              <span class="card-badge ms-2 bg-primary text-white">Selected</span>
+            }
+            <div class="d-flex gap-2 mt-3 flex-wrap">
+              <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" type="button" (click)="removeCard(card, $event)">Remove</button>
+              @if (!card.is_default && !card.expired) {
+                <span class="entry-link ms-2" style="cursor: pointer;" (click)="makeDefault(card, $event)">Make default <mat-icon class="small">chevron_right</mat-icon></span>
+              }
+            </div>
+          </div>
+        </div>
+      } @empty {
+        <div class="card-entry mx-auto text-center text-muted">
+          You have no saved {{ activeTab === 'All' ? '' : activeTab.toLowerCase() + ' ' }}cards yet. Add one below.
+        </div>
+      }
+    } @else {
+      <!-- Non-card payment choices -->
+      <div class="card-entry mx-auto text-start d-flex align-items-center flex-column flex-md-row gap-4" [class.border-primary]="!manageMode">
+        <div class="card-icon d-flex align-items-center justify-content-center">
+          <mat-icon class="fs-1" style="width:48px;height:48px;font-size:48px;">{{ activeTab === 'Other' ? 'local_shipping' : (activeTab === 'Bank' ? 'account_balance' : 'account_balance_wallet') }}</mat-icon>
+        </div>
+        <div class="flex-grow-1">
+          <span class="card-brand">{{ selectedMethodLabel }}</span>
+          <h4>
+            @if (activeTab === 'Other') { Pay in cash when your books arrive. Your order stays pending until it is delivered. }
+            @else if (activeTab === 'Bank') { Transfer the order total from your bank. Your order stays pending until payment is confirmed. }
+            @else { Pay with your digital wallet. Your order stays pending until payment is confirmed. }
+          </h4>
+          <span class="card-badge">USD</span>
         </div>
       </div>
-      <div class="flex-grow-1">
-        <span class="card-brand">{{ selectedMethod }}</span>
-        <h4>Ending in 4242. expires 12/26. This is your default payment method.</h4>
-        <span class="card-badge">USD</span>
-        <div class="d-flex gap-2 mt-3 flex-wrap">
-          <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" type="button">Remove</button>
-          <span class="entry-link ms-2" style="cursor: pointer;">Make default <mat-icon class="small">chevron_right</mat-icon></span>
-        </div>
-      </div>
-    </div>
+    }
   </div>
 </section>
 
-<!-- Confirm Order CTA -->
+<!-- Add Method / Confirm Order CTA -->
 <section class="payment-cta" id="cta-add-method">
   <div class="container">
     <div class="cta-box mx-auto text-center">
       <h2>Add a new method</h2>
       <p>Keep your information safe and secure with our payment processor.</p>
+
+      <form class="text-start mx-auto mt-4" style="max-width: 520px;" (ngSubmit)="saveCard()" id="add-card-form">
+        @if (cardError) {
+          <div class="alert alert-danger py-2 small">{{ cardError }}</div>
+        }
+        <div class="mb-3">
+          <label class="form-label small fw-bold" for="card-name">Cardholder name</label>
+          <input id="card-name" name="cardholderName" [(ngModel)]="newCard.cardholderName" class="form-control rounded-3" placeholder="Name on card" autocomplete="cc-name">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold" for="card-number">Card number</label>
+          <input id="card-number" name="cardNumber" [(ngModel)]="newCard.cardNumber" class="form-control rounded-3" inputmode="numeric" placeholder="1234 5678 9012 3456" autocomplete="cc-number">
+          <div class="form-text text-white">Only the last 4 digits are saved.</div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold" for="card-expiry">Expiry (MM/YY)</label>
+            <input id="card-expiry" name="expiry" [(ngModel)]="newCard.expiry" class="form-control rounded-3" placeholder="12/30" autocomplete="cc-exp">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold" for="card-type">Card type</label>
+            <select id="card-type" name="type" [(ngModel)]="newCard.type" class="form-select rounded-3">
+              <option value="CREDIT">Credit</option>
+              <option value="DEBIT">Debit</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="card-default" name="makeDefault" [(ngModel)]="newCard.makeDefault">
+          <label class="form-check-label small" for="card-default">Make this my default card</label>
+        </div>
+      </form>
+
+      @if (!manageMode) {
+        <p class="small mt-3 mb-0">Paying with: <strong id="selected-method">{{ selectedMethodLabel }}</strong></p>
+      }
       <div class="d-flex justify-content-center gap-2 mt-4">
-        <button (click)="confirmOrder()" [disabled]="isSubmitting" class="btn btn-primary rounded-pill px-5 fw-bold">
-          {{ isSubmitting ? 'Processing...' : 'Confirm Order' }}
+        @if (!manageMode) {
+          <button (click)="confirmOrder()" [disabled]="isSubmitting" class="btn btn-primary rounded-pill px-5 fw-bold">
+            {{ isSubmitting ? 'Processing...' : 'Confirm Order' }}
+          </button>
+        }
+        <button type="submit" form="add-card-form" [disabled]="isSaving" class="btn btn-outline-dark rounded-pill px-4 btn-sm" style="background:#e9ecef; border:none; color:#1a1a1a;">
+          {{ isSaving ? 'Saving...' : 'Save' }}
         </button>
-        <button class="btn btn-outline-dark rounded-pill px-4 btn-sm" style="background:#e9ecef; border:none; color:#1a1a1a;">Save</button>
       </div>
     </div>
   </div>
@@ -71,7 +145,7 @@
           <span class="pref-label">Default</span>
           <h3>Set a default payment method</h3>
           <p>Choose which card appears first at checkout for faster ordering.</p>
-          <span class="entry-link mt-3" style="cursor: pointer;">Update <mat-icon class="small">chevron_right</mat-icon></span>
+          <a [routerLink]="[]" fragment="saved-cards" class="entry-link mt-3 text-decoration-none">Update <mat-icon class="small">chevron_right</mat-icon></a>
         </div>
       </div>
       <div class="col-md-6">
@@ -79,7 +153,7 @@
           <span class="pref-label">Remove</span>
           <h3>Remove a payment method</h3>
           <p>Delete old or expired cards from your account. You'll always need one active payment method on file.</p>
-          <span class="entry-link mt-3" style="cursor: pointer;">Delete <mat-icon class="small">chevron_right</mat-icon></span>
+          <a [routerLink]="[]" fragment="saved-cards" class="entry-link mt-3 text-decoration-none">Delete <mat-icon class="small">chevron_right</mat-icon></a>
         </div>
       </div>
     </div>

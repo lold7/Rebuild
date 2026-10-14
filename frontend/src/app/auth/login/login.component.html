@@ -12,6 +12,9 @@
         </div>
         <div class="col-md-7">
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" id="login-form">
+            @if (infoMessage) {
+              <div class="alert alert-success">{{ infoMessage }}</div>
+            }
             @if (errorMessage) {
               <div class="alert alert-danger">{{ errorMessage }}</div>
             }
@@ -28,7 +31,7 @@
                 <input class="form-check-input" type="checkbox" id="rememberMe" formControlName="rememberMe">
                 <label class="form-check-label small text-muted" for="rememberMe">Remember Me</label>
               </div>
-              <a href="#" class="text-dark small fw-bold text-decoration-none">Forgot your password?</a>
+              <a routerLink="/auth/forgot-password" class="text-dark small fw-bold text-decoration-none">Forgot your password?</a>
             </div>
             <div class="d-grid gap-3">
               <button type="submit" [disabled]="loginForm.invalid || isLoading" class="btn btn-primary rounded-pill py-2 fw-bold w-50">

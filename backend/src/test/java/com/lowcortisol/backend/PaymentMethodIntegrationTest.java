@@ -272,11 +272,13 @@ class PaymentMethodIntegrationTest {
             "Admin", "admin@example.com", encoder.encode("correct-password"));
         Browser admin = new Browser();
         ok(admin.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")));
-        assertThat(admin.get(API).statusCode()).isEqualTo(403);
-        assertThat(admin.get(API + "/1").statusCode()).isEqualTo(403);
+        // Admins can keep their own saved cards for storefront checkout.
+        assertThat(admin.get(API).statusCode()).isEqualTo(200);
+        assertThat(admin.get(API + "/1").statusCode()).isNotIn(401, 403);
         for (String path : List.of("/add", "/delete/1", "/default/1")) {
-            assertThat(admin.post(API + path, card("CREDIT", "4242", false)).statusCode()).isEqualTo(403);
+            assertThat(admin.post(API + path, card("CREDIT", "4242", false)).statusCode()).isNotIn(401, 403);
         }
+        jdbc.update("DELETE FROM payment_methods");
         Browser browser = customer("alice@example.com");
         long id = browser.add("CREDIT", "4242", false);
         for (String path : List.of("/add", "/delete/" + id, "/default/" + id)) {
@@ -313,8 +315,9 @@ class PaymentMethodIntegrationTest {
             assertThatThrownBy(() -> methods.delete("other@example.com", 1)).isInstanceOf(AccessDeniedException.class);
             var invalid = new AddPaymentMethodRequest("CREDIT", "visa", "Alice", "4242424242424242", 13, 2030, "USD", false);
             assertThatThrownBy(() -> methods.add("alice@example.com", invalid)).isInstanceOf(ConstraintViolationException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> methods.get("alice@example.com", 1)).isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();

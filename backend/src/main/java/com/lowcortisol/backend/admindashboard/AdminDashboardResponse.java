@@ -9,4 +9,4 @@ public record AdminDashboardResponse(long totalProducts, long totalCustomers, lo
     BigDecimal totalRevenue, BigDecimal orderValue, String currency, long pendingOrders,
     long completedOrders, long cancelledOrders, long customersWithOrders, long customersWithoutOrders,
     InventorySummary inventory, List<DashboardRecentOrder> recentOrders, DashboardSalesTrend salesTrend,
-    OffsetDateTime generatedAt) {}
+    OffsetDateTime generatedAt, int recentOrdersPage, long recentOrdersTotalPages) {}

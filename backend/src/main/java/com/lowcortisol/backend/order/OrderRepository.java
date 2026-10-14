@@ -82,12 +82,16 @@ public class OrderRepository {
 
     long insert(long userId, Long addressId, Long savedPaymentMethodId, String key, String fingerprint,
         String paymentMethod, JsonNode address, JsonNode payment, CartResponse cart) {
+        // Card orders are paid at checkout and complete immediately; other methods wait for fulfilment.
+        boolean card = paymentMethod.equals("CREDIT_CARD") || paymentMethod.equals("DEBIT_CARD");
         return jdbc.queryForObject("""
             INSERT INTO orders (user_id, address_id, saved_payment_method_id, idempotency_key, request_fingerprint,
-                payment_method, address_snapshot, payment_snapshot, total_items, total_quantity, total_price)
-            VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?, ?) RETURNING order_id
+                payment_method, address_snapshot, payment_snapshot, total_items, total_quantity, total_price,
+                status, payment_status)
+            VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?, ?, ?, ?) RETURNING order_id
             """, Long.class, userId, addressId, savedPaymentMethodId, key, fingerprint, paymentMethod,
-            address.toString(), payment == null ? null : payment.toString(), cart.totalItems(), cart.totalQuantity(), cart.totalPrice());
+            address.toString(), payment == null ? null : payment.toString(), cart.totalItems(), cart.totalQuantity(), cart.totalPrice(),
+            card ? "completed" : "pending", card ? "paid" : "unpaid");
     }
 
     void addItem(long orderId, CartItemResponse item) {

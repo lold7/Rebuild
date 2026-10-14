@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @PreAuthorize("hasRole('ADMIN') && #email == authentication.name")
 public class AdminDashboardService {
+    /** Recent orders are listed ten per page, as in the original dashboard. */
+    private static final int RECENT_PAGE_SIZE = 10;
     private final AdminDashboardRepository dashboard;
     private final AdminCustomerService customers;
     private final AdminProductService products;
@@ -28,12 +30,20 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AdminDashboardResponse get(String email, String days) {
+        return get(email, days, null);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public AdminDashboardResponse get(String email, String days, String page) {
         int count = days(days);
+        int recentPage = page(page);
         // Anchor both the report snapshot and the UTC date window to this PostgreSQL transaction.
         var generatedAt = dashboard.generatedAt().withOffsetSameInstant(ZoneOffset.UTC);
         var customerSummary = customers.summary(email, "", null);
         var inventory = products.summary(email, null);
-        var recent = dashboard.recentOrders();
+        var recent = dashboard.recentOrders(recentPage, RECENT_PAGE_SIZE);
+        long recentTotal = dashboard.recentOrderCount();
+        long recentPages = recentTotal / RECENT_PAGE_SIZE + (recentTotal % RECENT_PAGE_SIZE == 0 ? 0 : 1);
         var end = generatedAt.toLocalDate();
         var start = end.minusDays(count - 1L);
         var byDate = new HashMap<LocalDate, DashboardDailySales>();
@@ -54,7 +64,17 @@ public class AdminDashboardService {
         return new AdminDashboardResponse(inventory.totalProducts(), customerSummary.totalCustomers(), customerSummary.totalOrders(),
             customerSummary.totalSpent(), customerSummary.orderValue(), "USD", customerSummary.pendingOrders(),
             customerSummary.completedOrders(), customerSummary.cancelledOrders(), customerSummary.customersWithOrders(),
-            customerSummary.customersWithoutOrders(), inventory, recent, trend, generatedAt);
+            customerSummary.customersWithoutOrders(), inventory, recent, trend, generatedAt, recentPage, recentPages);
+    }
+
+    private int page(String value) {
+        if (value == null) return 1;
+        try {
+            if (!value.matches("[0-9]+")) throw new NumberFormatException();
+            int page = Integer.parseInt(value);
+            if (page < 1) throw new NumberFormatException();
+            return page;
+        } catch (NumberFormatException exception) { throw new AdminDashboardException("page must be a positive integer"); }
     }
 
     private int days(String value) {

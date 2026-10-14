@@ -1,9 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ProductService } from '../../core/services/product.service';
 import { Product } from '../../core/models/models';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-all-products',
@@ -15,31 +16,38 @@ import { Product } from '../../core/models/models';
 export class AllProductsComponent implements OnInit {
   private productService = inject(ProductService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
-  products: Product[] = [];
+  /** Products on the current page (the server returns 15 per page). */
   displayedProducts: Product[] = [];
-  pageSize = 12;
+  totalItems = 0;
+  pageSize = 15;
   currentPage = 0;
 
   ngOnInit(): void {
-    this.productService.getProducts().subscribe({
-      next: (data) => {
-        this.products = data;
-        this.updatePage();
-      },
-      error: () => {}
+    // ?page=N (1-based) keeps the page in the URL; pages past the end are simply empty.
+    this.route.queryParamMap.subscribe(params => {
+      const page = Number(params.get('page')) || 1;
+      this.currentPage = Math.max(0, page - 1);
+      this.loadPage();
     });
   }
 
-  updatePage(): void {
-    const start = this.currentPage * this.pageSize;
-    this.displayedProducts = this.products.slice(start, start + this.pageSize);
+  loadPage(): void {
+    this.productService.getProductPage(this.currentPage + 1).subscribe({
+      next: (res) => {
+        this.displayedProducts = res.items;
+        this.totalItems = res.totalItems;
+        this.pageSize = res.pageSize;
+      },
+      error: () => {
+        this.displayedProducts = [];
+      }
+    });
   }
 
   onPageChange(event: PageEvent): void {
-    this.currentPage = event.pageIndex;
-    this.pageSize = event.pageSize;
-    this.updatePage();
+    this.router.navigate([], { relativeTo: this.route, queryParams: { page: event.pageIndex + 1 } });
     window.scrollTo({ top: 200, behavior: 'smooth' });
   }
 
@@ -48,17 +56,6 @@ export class AllProductsComponent implements OnInit {
   }
 
   getImageUrl(images: string[] | string): string {
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }

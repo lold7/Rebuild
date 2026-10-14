@@ -27,6 +27,11 @@ public class AdminProductException extends RuntimeException {
         return new AdminProductException(HttpStatus.CONFLICT, "STALE_PRODUCT_VERSION", "Product changed. Reload it before saving.");
     }
 
+    static AdminProductException inOrders() {
+        return new AdminProductException(HttpStatus.CONFLICT, "PRODUCT_IN_ORDERS",
+            "This product appears in past orders and cannot be deleted. Hide it instead.");
+    }
+
     static AdminProductException skuInUse() {
         return new AdminProductException(HttpStatus.CONFLICT, "SKU_IN_USE", "SKU is already assigned to another product");
     }

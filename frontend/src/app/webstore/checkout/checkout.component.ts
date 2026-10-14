@@ -6,6 +6,7 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OrderService } from '../../core/services/order.service';
 import { CartItem, Address } from '../../core/models/models';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-checkout',
@@ -32,8 +33,8 @@ export class CheckoutComponent implements OnInit {
         this.total = res.total || 0;
         this.addresses = res.addresses || [];
         if (this.addresses.length > 0) {
-          const defaultAddr = this.addresses.find(a => a.is_default);
-          this.selectedAddressId = defaultAddr ? defaultAddr.address_id : this.addresses[0].address_id;
+          // The default address is pre-selected.
+          this.selectedAddressId = res.defaultAddressId ?? this.addresses[0].address_id;
         }
         this.isLoading = false;
         if (this.cartItems.length === 0) {
@@ -48,7 +49,11 @@ export class CheckoutComponent implements OnInit {
   }
 
   continueToPayment(): void {
-    if (!this.selectedAddressId && this.addresses.length > 0) {
+    if (this.addresses.length === 0) {
+      this.snackBar.open('Please add a shipping address before continuing', 'Close', { duration: 3000 });
+      return;
+    }
+    if (!this.selectedAddressId) {
       this.snackBar.open('Please select a shipping address', 'Close', { duration: 3000 });
       return;
     }
@@ -58,17 +63,6 @@ export class CheckoutComponent implements OnInit {
   }
 
   getImageUrl(images: string[] | string): string {
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }

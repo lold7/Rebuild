@@ -79,7 +79,8 @@
                         [ngClass]="{
                           'bg-success-subtle text-success': order.status === 'completed',
                           'bg-danger-subtle text-danger': order.status === 'cancelled',
-                          'bg-warning-subtle text-warning': order.status === 'pending'
+                          'bg-warning-subtle text-warning': order.status === 'pending',
+                          'bg-info-subtle text-info': order.status === 'processing'
                         }">
                         {{ order.created_at | date:'shortDate' }}
                       </span>
@@ -94,6 +95,15 @@
             </tbody>
           </table>
         </div>
+        @if (totalPages > 1) {
+          <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top" id="recent-orders-pager">
+            <span class="text-muted font-size-14">Page {{ page }} of {{ totalPages }}</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-white border bg-white" [disabled]="page <= 1" (click)="load(page - 1)">Previous</button>
+              <button class="btn btn-sm btn-white border bg-white" [disabled]="page >= totalPages" (click)="load(page + 1)">Next</button>
+            </div>
+          </div>
+        }
       </div>
 
       <!-- Bottom Action Cards -->

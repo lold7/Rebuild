@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { apiErrorMessage } from '../../core/utils/api.utils';
 
 @Component({
   selector: 'app-register',
@@ -20,14 +21,19 @@ export class RegisterComponent {
     username: ['', Validators.required],
     phone: [''],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
   errorMessage = '';
   isLoading = false;
 
   onSubmit(): void {
-    if (this.registerForm.invalid) return;
+    if (this.registerForm.invalid) {
+      this.errorMessage = this.registerForm.get('password')?.hasError('minlength')
+        ? 'Password must be at least 8 characters.'
+        : 'Please fill in your username, email and password.';
+      return;
+    }
 
     this.isLoading = true;
     this.errorMessage = '';
@@ -39,7 +45,9 @@ export class RegisterComponent {
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err.error?.message || 'Registration failed. Email might already be taken.';
+        this.errorMessage = err.status === 409
+          ? 'This email is already registered.'
+          : apiErrorMessage(err, 'Registration failed. Please check your details.');
       }
     });
   }

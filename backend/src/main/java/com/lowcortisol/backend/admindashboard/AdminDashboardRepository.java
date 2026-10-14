@@ -17,16 +17,20 @@ public class AdminDashboardRepository {
         return jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", OffsetDateTime.class);
     }
 
-    List<DashboardRecentOrder> recentOrders() {
+    long recentOrderCount() {
+        return jdbc.queryForObject("SELECT count(*) FROM orders o JOIN users u ON u.user_id = o.user_id AND u.role = 'customer'", Long.class);
+    }
+
+    List<DashboardRecentOrder> recentOrders(int page, int size) {
         return jdbc.query("""
             SELECT o.order_id, o.user_id, u.username, o.status, o.payment_status, o.payment_method,
                 o.total_items, o.total_quantity, o.total_price, o.currency, o.created_at
             FROM orders o JOIN users u ON u.user_id = o.user_id AND u.role = 'customer'
-            ORDER BY o.created_at DESC, o.order_id DESC LIMIT 10
+            ORDER BY o.created_at DESC, o.order_id DESC LIMIT ? OFFSET ?
             """, (rs, row) -> new DashboardRecentOrder(rs.getLong("order_id"), rs.getLong("user_id"), rs.getString("username"),
                 rs.getString("status"), rs.getString("payment_status"), rs.getString("payment_method"),
                 rs.getInt("total_items"), rs.getLong("total_quantity"), rs.getBigDecimal("total_price"),
-                rs.getString("currency"), rs.getObject("created_at", OffsetDateTime.class)));
+                rs.getString("currency"), rs.getObject("created_at", OffsetDateTime.class)), size, (long) (page - 1) * size);
     }
 
     List<DashboardDailySales> dailySales(LocalDate start, LocalDate end) {

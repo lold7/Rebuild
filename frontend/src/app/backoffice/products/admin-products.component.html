@@ -29,7 +29,11 @@
               }
             </select>
           </div>
-          @if (selectedCategoryId) {
+          <form class="position-relative" (ngSubmit)="onSearch()">
+            <mat-icon class="position-absolute top-50 translate-middle-y ms-2 text-muted" style="font-size:1.1rem;width:1.1rem;height:1.1rem;">search</mat-icon>
+            <input type="text" name="q" [(ngModel)]="searchQuery" class="form-control form-control-sm rounded-pill border py-1 ps-4 font-size-14" style="min-width: 240px;" placeholder="Search title or author..." id="product-search">
+          </form>
+          @if (selectedCategoryId || searchQuery) {
             <button (click)="clearFilter()" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill py-2 px-3 fw-normal font-size-12 d-flex align-items-center gap-2 text-decoration-none">
               Clear Filter <mat-icon class="text-primary fs-6 position-relative" style="cursor:pointer; top:1px;">close</mat-icon>
             </button>
@@ -50,14 +54,15 @@
                 <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Product Name</th>
                 <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Category</th>
                 <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Price</th>
+                <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Stock</th>
                 <th class="text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Attributes</th>
                 <th class="pe-4 text-end text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Actions</th>
               </tr>
             </thead>
             <tbody>
               @if (products.length > 0) {
-                @for (p of products; track p.product_id) {
-                  <tr>
+                @for (p of pagedProducts; track p.product_id) {
+                  <tr [class.table-danger]="isOutOfStock(p)" [class.out-of-stock]="isOutOfStock(p)">
                     <td class="ps-4">
                       <div class="bg-light rounded p-2 d-flex align-items-center justify-content-center" style="width: 48px; height: 64px;">
                         @if (getFirstImage(p.product_images)) {
@@ -70,6 +75,9 @@
                     <td>
                       <h6 class="m-0 fw-bold font-size-14 mb-1">{{ p.product_name }}</h6>
                       <small class="text-muted" style="font-size:0.75rem;">ID: #{{ p.product_id }}</small>
+                      @if (!p.is_visible || p.category_visible === false) {
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-2 fw-normal" style="font-size:0.7rem;">Hidden</span>
+                      }
                     </td>
                     <td>
                       <span class="badge rounded-pill fw-normal" style="background-color: #e0f2fe; color: #0284c7; padding: 0.35rem 0.7rem;">
@@ -77,8 +85,12 @@
                       </span>
                     </td>
                     <td class="fw-medium text-dark">${{ (+p.product_price).toFixed(2) }}</td>
+                    <td class="font-size-14 fw-medium" [class.text-danger]="isOutOfStock(p)">{{ isOutOfStock(p) ? 'Out of stock' : p.product_quantity }}</td>
                     <td class="text-muted font-size-14">{{ getAttributes(p.product_attributes) }}</td>
                     <td class="pe-4 text-end">
+                      <button (click)="toggleVisibility(p)" class="btn btn-link text-muted p-1 me-2 text-decoration-none" [title]="p.is_visible ? 'Hide product' : 'Show product'">
+                        <mat-icon>{{ p.is_visible ? 'visibility' : 'visibility_off' }}</mat-icon>
+                      </button>
                       <a [routerLink]="['/backoffice/inventory', p.product_id]" class="btn btn-link text-muted p-1 me-2 text-decoration-none">
                         <mat-icon>edit</mat-icon>
                       </a>
@@ -90,7 +102,7 @@
                 }
               } @else {
                 <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No products found.</td>
+                  <td colspan="7" class="text-center text-muted py-4">No products found.</td>
                 </tr>
               }
             </tbody>
@@ -99,7 +111,18 @@
 
         <!-- Footer -->
         <div class="d-flex flex-wrap align-items-center justify-content-between p-4 border-top bg-white">
-          <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong>{{ products.length }}</strong> results</span>
+          <span class="text-muted font-size-14 mb-2 mb-md-0">Showing <strong>{{ pagedProducts.length }}</strong> of <strong>{{ products.length }}</strong> results</span>
+          @if (totalPages > 1) {
+            <nav aria-label="Product pages">
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" [class.disabled]="page <= 1"><button class="page-link" (click)="goToPage(page - 1)">&laquo;</button></li>
+                @for (n of pageNumbers; track n) {
+                  <li class="page-item" [class.active]="n === page"><button class="page-link" (click)="goToPage(n)">{{ n }}</button></li>
+                }
+                <li class="page-item" [class.disabled]="page >= totalPages"><button class="page-link" (click)="goToPage(page + 1)">&raquo;</button></li>
+              </ul>
+            </nav>
+          }
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ import org.springframework.validation.annotation.Validated;
 
 @Service
 @Validated
-@PreAuthorize("hasRole('CUSTOMER') && #email == authentication.name")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN') && #email == authentication.name")
 public class PaymentMethodService {
     private static final Set<String> TYPES = Set.of("CREDIT", "DEBIT");
     private static final Set<String> BRANDS = Set.of("visa", "mastercard", "amex", "discover", "jcb", "unionpay", "diners", "other");

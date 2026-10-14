@@ -12,7 +12,8 @@ public class AdminDashboardController {
     public AdminDashboardController(AdminDashboardService dashboard) { this.dashboard = dashboard; }
 
     @GetMapping("/api/admin/dashboard")
-    public AdminDashboardResponse get(@RequestParam(required = false) String days, Authentication auth) {
-        return dashboard.get(auth.getName(), days);
+    public AdminDashboardResponse get(@RequestParam(required = false) String days,
+        @RequestParam(required = false) String page, Authentication auth) {
+        return dashboard.get(auth.getName(), days, page);
     }
 }

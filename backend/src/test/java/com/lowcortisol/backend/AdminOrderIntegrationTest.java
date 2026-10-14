@@ -157,7 +157,8 @@ class AdminOrderIntegrationTest {
         assertThat(result.toString()).doesNotContain("passwordHash", "password_hash", "idempotencyKey", "requestFingerprint");
         assertThat(ok(admin.get(API)).at("/items/0")).isEqualTo(result);
         assertError(bob.get("/api/orders/" + id), 404, "ORDER_NOT_FOUND");
-        assertThat(admin.get("/api/orders/" + id).statusCode()).isEqualTo(403);
+        // Admins may shop on the storefront, but the customer endpoint only returns their own orders.
+        assertThat(admin.get("/api/orders/" + id).statusCode()).isEqualTo(404);
     }
 
     @Test
@@ -187,7 +188,7 @@ class AdminOrderIntegrationTest {
     }
 
     @Test
-    void unchangedStatusIsANoOpAndTerminalStatesRejectReopening() throws Exception {
+    void unchangedStatusIsANoOpAndOrdersCanMoveBetweenStatuses() throws Exception {
         Browser admin = admin(), customer = customer("alice");
         long id = place(customer, 1);
         JsonNode before = ok(admin.get(API + "/" + id));
@@ -196,9 +197,12 @@ class AdminOrderIntegrationTest {
         JsonNode completed = ok(admin.send("PUT", statusPath(id), change("completed", 0, "Fulfilled")));
         assertThat(ok(admin.send("PUT", statusPath(id), change("completed", 1, "Retry")))).isEqualTo(completed);
         assertError(admin.send("PUT", statusPath(id), change("completed", 0, "Stale retry")), 409, "STALE_ORDER_VERSION");
-        for (String target : List.of("pending", "cancelled"))
-            assertError(admin.send("PUT", statusPath(id), change(target, 1, "Reopen")), 409, "INVALID_ORDER_STATUS_TRANSITION");
-        assertThat(count("order_status_changes")).isEqualTo(1);
+        // Completed orders can be moved back, e.g. to processing; stock is untouched.
+        JsonNode processing = ok(admin.send("PUT", statusPath(id), change("processing", 1, "Reopen")));
+        assertThat(processing.at("/order/status").asText()).isEqualTo("processing");
+        assertThat(processing.get("version").asLong()).isEqualTo(2);
+        assertThat(ok(customer.get("/api/account/orders?status=processing")).get("totalItems").asLong()).isEqualTo(1);
+        assertThat(count("order_status_changes")).isEqualTo(2);
         assertThat(stock(1)).isEqualTo(73);
     }
 
@@ -226,11 +230,37 @@ class AdminOrderIntegrationTest {
         assertThat(ok(customer.get("/api/account/orders?status=cancelled")).at("/items/0/items")).isEqualTo(original.get("items"));
         assertThat(ok(admin.send("PUT", statusPath(id), change("cancelled", 1, "Retry")))).isEqualTo(cancelled);
         assertError(admin.send("PUT", statusPath(id), change("cancelled", 0, "Stale")), 409, "STALE_ORDER_VERSION");
-        assertError(admin.send("PUT", statusPath(id), change("completed", 1, "Reopen")), 409, "INVALID_ORDER_STATUS_TRANSITION");
         assertError(admin.send("PUT", "/api/admin/products/1/stock", Map.of("quantity", 69, "expectedVersion", 1, "reason", "Old form")), 409, "STALE_PRODUCT_VERSION");
         assertThat(stock(1)).isEqualTo(74);
-        assertThat(count("order_status_changes")).isEqualTo(1);
-        assertThat(count("inventory_adjustments")).isEqualTo(2);
+        // Reversing the cancellation takes the books out of stock again.
+        JsonNode reopened = ok(admin.send("PUT", statusPath(id), change("completed", 1, "Reopen")));
+        assertThat(reopened.at("/order/status").asText()).isEqualTo("completed");
+        assertThat(reopened.get("stockReleased").asBoolean()).isFalse();
+        assertThat(stock(1)).isEqualTo(69);
+        assertThat(stock(14)).isEqualTo(otherBefore - 1);
+        assertThat(count("order_status_changes")).isEqualTo(2);
+        assertThat(count("inventory_adjustments")).isEqualTo(4);
+        assertThat(ok(admin.get("/api/admin/products/1/stock-history")).at("/items/0/delta").asLong()).isEqualTo(-5);
+    }
+
+    @Test
+    void reversingACancellationFailsWithoutEnoughStock() throws Exception {
+        Browser admin = admin(), customer = customer("alice");
+        long id = place(customer, 2);
+        ok(admin.send("PUT", statusPath(id), change("cancelled", 0, "Cancelled")));
+        jdbc.update("UPDATE products SET product_quantity = 1 WHERE product_id = 1");
+        assertError(admin.send("PUT", statusPath(id), change("pending", 1, "Reopen")), 409, "INSUFFICIENT_STOCK");
+        assertThat(stock(1)).isEqualTo(1);
+        assertThat(ok(admin.get(API + "/" + id)).at("/order/status").asText()).isEqualTo("cancelled");
+    }
+
+    @Test
+    void completingCashOnDeliveryRecordsPayment() throws Exception {
+        Browser admin = admin(), customer = customer("alice");
+        customer.add(1, 1, "Paperback");
+        long id = created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "CASH_ON_DELIVERY"))).get("orderId").asLong();
+        JsonNode completed = ok(admin.send("PUT", statusPath(id), change("completed", 0, "Delivered and paid")));
+        assertThat(completed.at("/order/paymentStatus").asText()).isEqualTo("paid");
     }
 
     @Test
@@ -249,7 +279,9 @@ class AdminOrderIntegrationTest {
         customer.add(1, 2, "Paperback"); customer.add(14, 1, "Paperback");
         JsonNode original = created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")));
         long id = original.get("orderId").asLong();
-        assertThat(admin.send("DELETE", "/api/admin/products/1?expectedVersion=1", Map.of()).statusCode()).isEqualTo(204);
+        // Admins cannot delete ordered products any more; simulate a product removed directly in the database.
+        assertThat(admin.send("DELETE", "/api/admin/products/1?expectedVersion=1", Map.of()).statusCode()).isEqualTo(409);
+        jdbc.update("DELETE FROM products WHERE product_id = 1");
         // Even reusing the source ID must not revive a deleted order-item reference from its snapshot.
         jdbc.update("INSERT INTO products (product_id, category_id, product_name, product_price, product_quantity) OVERRIDING SYSTEM VALUE VALUES (1, 1, 'Replacement', 10, 20)");
         JsonNode result = ok(admin.send("PUT", statusPath(id), change("cancelled", 0, "Source product removed")));

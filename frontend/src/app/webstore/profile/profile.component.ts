@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { apiErrorMessage } from '../../core/utils/api.utils';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/services/auth.service';
@@ -17,6 +18,7 @@ export class ProfileComponent implements OnInit {
   private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
+  private router = inject(Router);
 
   currentUser: User | null = null;
   profileForm!: FormGroup;
@@ -36,7 +38,7 @@ export class ProfileComponent implements OnInit {
 
     this.passwordForm = this.fb.group({
       currentPassword: ['', Validators.required],
-      newPassword: ['', [Validators.required, Validators.minLength(6)]],
+      newPassword: ['', [Validators.required, Validators.minLength(8)]],
       confirmPassword: ['', Validators.required]
     });
 
@@ -59,11 +61,16 @@ export class ProfileComponent implements OnInit {
 
     this.authService.updateProfile(this.profileForm.value).subscribe({
       next: (res) => {
+        if (res.reauthenticationRequired) {
+          // A new email signs the account out everywhere; log in again with the new email.
+          this.goToLogin('Email updated. Please log in again with your new email.');
+          return;
+        }
         this.successMessage = 'Profile updated successfully!';
         this.snackBar.open('Profile updated successfully!', 'Close', { duration: 3000 });
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Failed to update profile';
+        this.errorMessage = err.status === 409 ? 'That email is already in use.' : apiErrorMessage(err, 'Failed to update profile');
         this.snackBar.open(this.errorMessage, 'Close', { duration: 3000 });
       }
     });
@@ -84,14 +91,21 @@ export class ProfileComponent implements OnInit {
 
     this.authService.changePassword({ currentPassword, newPassword, confirmPassword }).subscribe({
       next: () => {
-        this.successMessage = 'Password changed successfully!';
+        // Changing the password ends every session, including this one.
         this.passwordForm.reset();
-        this.snackBar.open('Password changed successfully!', 'Close', { duration: 3000 });
+        this.goToLogin('Password changed successfully. Please log in with your new password.');
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Failed to change password';
+        this.errorMessage = err.error?.code === 'INCORRECT_CURRENT_PASSWORD'
+          ? 'Current password is incorrect'
+          : apiErrorMessage(err, 'Failed to change password');
         this.snackBar.open(this.errorMessage, 'Close', { duration: 3000 });
       }
     });
+  }
+
+  private goToLogin(message: string): void {
+    this.snackBar.open(message, 'Close', { duration: 4000 });
+    this.router.navigate(['/auth/login'], { queryParams: { message } });
   }
 }

@@ -2,6 +2,18 @@
 
 Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, admin order management, admin customer reporting, the admin dashboard, and public FAQ retrieval.
 
+## Behaviour aligned with the original store
+
+These rules match the original InwZa Bookstore feature inventory:
+
+- **Payment and order status.** Checkout accepts `CREDIT_CARD`, `DEBIT_CARD`, `BANK_TRANSFER`, `DIGITAL_WALLET` and `CASH_ON_DELIVERY`. Card orders are created as `completed`/`paid`; every other method starts `pending`/`unpaid`. Completing a Cash on Delivery order records it as `paid`.
+- **Order statuses.** Orders can be `pending`, `processing`, `completed` or `cancelled`, and admins may move an order between any of them. Cancelling restores stock; moving a cancelled order back to another status deducts the stock again (or returns `409 INSUFFICIENT_STOCK` without changing anything). Reports count `processing` orders in the pending (open) totals.
+- **Admins on the storefront.** Admins can use the cart, wishlist, address book, saved cards, checkout and order history with their own account. Customer profile endpoints stay customer-only.
+- **Stock and visibility.** A product created with zero stock starts hidden. Setting stock to zero hides a product; restocking from zero shows it again; otherwise a manual hide is kept.
+- **Deleting products.** A product that appears in past orders cannot be deleted (`409 PRODUCT_IN_ORDERS`); hide it instead.
+- **Category images** may be a filename or an `http(s)` image URL.
+- **Dashboard.** `GET /api/admin/dashboard?page=N` pages the recent orders ten at a time and returns `recentOrdersPage` and `recentOrdersTotalPages`.
+
 ## Run with Docker
 
 From the `backend` directory:

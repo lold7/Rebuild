@@ -5,6 +5,7 @@ import { RouterModule, Router } from '@angular/router';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { ProductService } from '../../core/services/product.service';
 import { Product } from '../../core/models/models';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-home',
@@ -70,17 +71,6 @@ export class HomeComponent implements OnInit {
   }
 
   getImageUrl(images: string[] | string): string {
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }
