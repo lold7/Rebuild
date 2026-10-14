@@ -1,6 +1,6 @@
 # Customer and admin authentication backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication and admin authentication/authorization as a JSON API: customer registration, login, logout, and 30-day Remember me, plus separate admin login and restricted admin account creation.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication, admin authentication/authorization, and password recovery as a JSON API: customer registration, login, logout, 30-day Remember me, separate admin login, restricted admin account creation, and expiring password-reset links.
 
 ## Run with Docker
 
@@ -45,6 +45,9 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/admin/auth/login` | Public. Accepts admin credentials only; rotates the session ID and returns `200` with public admin fields. |
 | GET | `/api/admin/auth/me` | Admin only. Returns the authenticated admin's public account fields. |
 | POST | `/api/admin/auth/register` | Admin only. Creates another admin, returns `201`, and keeps the creator logged in. |
+| POST | `/api/auth/forgot-password` | Public. Requests a 30-minute password-reset link for a customer or admin account. |
+| GET | `/api/auth/reset-password/{token}` | Public. Checks a reset link without consuming it; returns `{ "valid": true }` or `400`. |
+| POST | `/api/auth/reset-password/{token}` | Public. Changes the password, consumes the token, and revokes the account's sessions and remembered logins. |
 
 Registration body:
 
@@ -131,6 +134,60 @@ Start with `docker compose up --build` (or export `.env` and use `./mvnw spring-
 
 The setup is idempotent: an existing admin email is left unchanged, including its password. An email already owned by a customer causes startup to fail; it never promotes that customer. No default admin account or password is included in the schema.
 
+## Password recovery
+
+Both customer and admin accounts use the same recovery endpoints. Send POST `/api/auth/forgot-password` with:
+
+```json
+{ "email": "alice@example.com" }
+```
+
+The response is `200` with the same generic `message` for registered and unknown emails. No account details are returned. In SMTP mode, the link is sent to the normalized account email and is excluded from the API response. In local demo mode, a registered account's response also contains `resetLink`, matching the original project's simulated-email behavior.
+
+Open GET `/api/auth/reset-password/{token}` to check a link. It returns JSON, not an HTML form; the frontend can use this check before showing its new-password form. Viewing a valid link does not consume it. Submit the new password to POST on the same endpoint:
+
+```json
+{
+  "newPassword": "a-new-long-password",
+  "confirmPassword": "a-new-long-password"
+}
+```
+
+Passwords must match, contain at least 8 characters, and fit within BCrypt's 72 UTF-8 byte limit. Validation or CSRF failures leave the link usable. Unknown, malformed, expired, previously replaced, and consumed tokens return `400` with code `INVALID_RESET_TOKEN`. A successful reset returns `200` with `{ "message": "Password reset successfully. Please log in." }`; it does not automatically log the user in or change their role.
+
+Tokens contain 32 random bytes and expire after 30 minutes. PostgreSQL stores only their SHA-256 hashes. Each account has at most one reset token; a new request replaces the previous link. Account row locks and transactional token consumption ensure concurrent attempts cannot reset a password twice with the same link. Updating the password, consuming the token, and revoking all of that account's sessions and remembered-login tokens occur in one transaction. Other accounts remain logged in.
+
+All recovery POST requests require the CSRF token and cookie obtained from GET `/api/auth/csrf`, even when the user is logged out. Use `apiPost` below for these requests as well.
+
+### Delivery setup
+
+Add the appropriate settings to your existing `.env` and restart the backend. Recovery delivery defaults to `disabled` when no mode is configured; forgot-password requests then return `503` with code `RESET_DELIVERY_UNAVAILABLE`. `.env.example` explicitly selects `demo` for local development.
+
+For the original simulated-email flow:
+
+```dotenv
+PASSWORD_RESET_DELIVERY=demo
+PASSWORD_RESET_LINK_BASE_URL=http://localhost:8080/api/auth/reset-password
+```
+
+Demo mode exposes usable reset links in responses and is intended only for local development. For email delivery:
+
+```dotenv
+PASSWORD_RESET_DELIVERY=smtp
+PASSWORD_RESET_LINK_BASE_URL=https://your-frontend.example/reset-password
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_USERNAME=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM=noreply@your-domain.example
+SMTP_AUTH=true
+SMTP_STARTTLS=true
+```
+
+The link base must be an absolute HTTP(S) URL without credentials, query parameters, or fragments. The backend appends `/{token}`. Point it at your frontend's password-reset route once that form is implemented. The default points to the API's JSON link-check endpoint. SMTP uses a fixed configured URL, so request Host headers cannot alter emailed reset links.
+
+SMTP connections and reads/writes have five-second timeouts. Missing SMTP configuration or a delivery failure returns the generic `503` delivery error. A failed delivery rolls back token replacement, preserving any preceding valid link. No live SMTP credentials are bundled.
+
 ## Frontend integration
 
 Use `credentials: 'include'` for every request, including the initial CSRF fetch. Obtain a fresh CSRF token after login or logout because authentication invalidates the previous token. This example fetches a token before each POST:
@@ -188,6 +245,8 @@ await apiPost('/api/auth/logout');
 - `persistent_logins`: persistent-login series, rotating token, last-use timestamp, and a foreign key to the customer's email.
 - `spring_session` and `spring_session_attributes`: database-backed sessions, expiry indexes, and cascading attribute cleanup.
 
+`V2__password_recovery.sql` adds `password_resets`: a unique account reference, unique SHA-256 token hash, expiry timestamp, and creation timestamp. It upgrades existing databases through Flyway without modifying the first migration. Deleting an account cascades to its reset token.
+
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
 ## Configuration
@@ -205,6 +264,13 @@ All account queries are parameterized. Registration relies on PostgreSQL's uniqu
 | `BOOTSTRAP_ADMIN_USERNAME` | `admin` |
 | `BOOTSTRAP_ADMIN_EMAIL` | Required when bootstrap is enabled |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Required when bootstrap is enabled; same password limits as registration |
+| `PASSWORD_RESET_DELIVERY` | `disabled`; choose `demo` for local links or `smtp` for email |
+| `PASSWORD_RESET_LINK_BASE_URL` | `http://localhost:8080/api/auth/reset-password`; reset links append `/{token}` |
+| `SMTP_HOST` | Required for SMTP mode |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | SMTP credentials |
+| `SMTP_FROM` | `noreply@bookstore.local`; configure a sender accepted by your provider |
+| `SMTP_AUTH`, `SMTP_STARTTLS` | `true`; STARTTLS is required when enabled |
 
 Cookies use SameSite=Lax; deploy the frontend and API on the same site. CORS allows only the configured origins and includes credentials. Keep the remember-me key stable across restarts. PostgreSQL session storage avoids losing active sessions when the application restarts.
 
@@ -217,3 +283,5 @@ With Docker running:
 ```
 
 Tests start an isolated PostgreSQL 17 container and the real HTTP server. They verify customer and admin password authentication, email uniqueness across roles, validation, role injection rejection, database session persistence, session ID rotation, CSRF enforcement, CORS, remembered login, expired/tampered cookies, and logout revocation. Admin tests also cover restricted account creation, rejection of guest/customer access, role separation, service-layer authorization, switching accounts, and idempotent bootstrap that cannot promote a customer. Test containers are removed automatically; tests do not use the application database.
+
+Recovery tests verify hashed tokens, 30-minute expiry, replacement, single use, concurrent reset attempts, password validation, CSRF protection, customer/admin recovery, session and remembered-token revocation, and rollback on delivery failure. Mail tests verify SMTP message construction and transport-failure handling using a mock sender; they do not contact a real email provider.

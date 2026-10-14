@@ -117,7 +117,9 @@ public class SecurityConfig {
             .securityContext(config -> config.securityContextRepository(contexts))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/reset-password/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/reset-password/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/**").hasRole("CUSTOMER")

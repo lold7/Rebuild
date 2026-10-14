@@ -29,6 +29,15 @@ services:
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      PASSWORD_RESET_DELIVERY: ${PASSWORD_RESET_DELIVERY:-disabled}
+      PASSWORD_RESET_LINK_BASE_URL: ${PASSWORD_RESET_LINK_BASE_URL:-http://localhost:8080/api/auth/reset-password}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@bookstore.local}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
     depends_on:
       db:
         condition: service_healthy
