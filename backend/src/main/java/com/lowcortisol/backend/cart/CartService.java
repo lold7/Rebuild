@@ -32,6 +32,13 @@ public class CartService {
     }
 
     @Transactional
+    public CartResponse lockForCheckout(String email) {
+        long userId = customers.customerId(email, true);
+        cart.lockProductsForCheckout(userId);
+        return response(userId);
+    }
+
+    @Transactional
     public CartResponse add(String email, AddCartItemRequest request) {
         validateId(request.productId());
         validateQuantity(request.quantity());

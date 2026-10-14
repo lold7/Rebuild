@@ -10,8 +10,10 @@ import com.lowcortisol.backend.address.AddressNotFoundException;
 import com.lowcortisol.backend.address.InvalidAddressRequestException;
 import com.lowcortisol.backend.cart.CartException;
 import com.lowcortisol.backend.payment.PaymentMethodException;
+import com.lowcortisol.backend.order.OrderException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(OrderException.class)
+    ResponseEntity<ApiError> orderError(OrderException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(PaymentMethodException.class)
     ResponseEntity<ApiError> paymentMethodError(PaymentMethodException exception) {
         return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
@@ -91,6 +98,12 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiError> duplicateEmail() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ApiError("EMAIL_IN_USE", "Email is already registered"));
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    ResponseEntity<ApiError> databaseFailure() {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(new ApiError("DATABASE_ERROR", "Unable to complete the request. Please try again."));
     }
 
     @ExceptionHandler(AuthenticationException.class)
