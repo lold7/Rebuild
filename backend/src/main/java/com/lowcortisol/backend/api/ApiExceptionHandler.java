@@ -6,6 +6,8 @@ import com.lowcortisol.backend.auth.IncorrectCurrentPasswordException;
 import com.lowcortisol.backend.catalog.CatalogNotFoundException;
 import com.lowcortisol.backend.catalog.InvalidCatalogRequestException;
 import com.lowcortisol.backend.wishlist.InvalidWishlistRequestException;
+import com.lowcortisol.backend.address.AddressNotFoundException;
+import com.lowcortisol.backend.address.InvalidAddressRequestException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -19,6 +21,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(AddressNotFoundException.class)
+    ResponseEntity<ApiError> addressNotFound(AddressNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError("ADDRESS_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidAddressRequestException.class)
+    ResponseEntity<ApiError> invalidAddress(InvalidAddressRequestException exception) {
+        return ResponseEntity.badRequest().body(new ApiError("INVALID_ADDRESS_REQUEST", exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidWishlistRequestException.class)
     ResponseEntity<ApiError> invalidWishlistRequest(InvalidWishlistRequestException exception) {
         return ResponseEntity.badRequest().body(new ApiError("INVALID_WISHLIST_REQUEST", exception.getMessage()));
