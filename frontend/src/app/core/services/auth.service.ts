@@ -1,24 +1,25 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, catchError, of } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, map, of, switchMap, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { User } from '../models/models';
+import { mapUser } from '../models/mappers';
 
+/**
+ * Session-cookie authentication against the Spring backend.
+ * The server owns the session; the browser only keeps the current user in memory.
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
-  private apiUrl = `${environment.apiUrl}/auth`;
+  private apiUrl = environment.apiUrl;
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
-
-  constructor() {
-    this.loadUserFromStorage();
-  }
 
   public get currentUserValue(): User | null {
     return this.currentUserSubject.value;
@@ -32,90 +33,148 @@ export class AuthService {
     return this.currentUserSubject.value?.role === 'admin';
   }
 
-  private loadUserFromStorage(): void {
-    const token = localStorage.getItem('token');
-    const userJson = localStorage.getItem('user');
-    if (token && userJson) {
-      try {
-        const user = JSON.parse(userJson);
-        this.currentUserSubject.next(user);
-        this.checkAuth().subscribe();
-      } catch (_) {
-        this.logout();
-      }
-    }
-  }
-
-  checkAuth(): Observable<User | null> {
-    const token = localStorage.getItem('token');
-    if (!token) return of(null);
-
-    return this.http.get<User>(`${this.apiUrl}/me`).pipe(
-      tap(user => {
-        this.setCurrentUser(user);
-      }),
+  /** Restores the session (or a Remember-me login) when the app starts. */
+  init(): Observable<User | null> {
+    return this.http.get<any>(`${this.apiUrl}/auth/me`).pipe(
+      catchError(() => this.http.get<any>(`${this.apiUrl}/admin/auth/me`)),
+      map(mapUser),
+      tap(user => this.currentUserSubject.next(user)),
       catchError(() => {
-        this.logout();
+        this.currentUserSubject.next(null);
         return of(null);
       })
     );
   }
 
-  login(credentials: { email: string; password: string }): Observable<{ token: string; user: User }> {
-    return this.http.post<{ token: string; user: User }>(`${this.apiUrl}/login`, credentials).pipe(
-      tap(res => {
-        localStorage.setItem('token', res.token);
-        this.setCurrentUser(res.user);
-      })
+  /** Kept for existing callers: re-reads the signed-in account from the server. */
+  checkAuth(): Observable<User | null> {
+    return this.init();
+  }
+
+  login(credentials: { email: string; password: string; rememberMe?: boolean }): Observable<User> {
+    return this.http.post<any>(`${this.apiUrl}/auth/login`, {
+      email: credentials.email,
+      password: credentials.password,
+      rememberMe: !!credentials.rememberMe
+    }).pipe(
+      map(mapUser),
+      tap(user => this.setCurrentUser(user))
     );
   }
 
-  register(data: any): Observable<{ token: string; user: User }> {
-    return this.http.post<{ token: string; user: User }>(`${this.apiUrl}/register`, data).pipe(
-      tap(res => {
-        localStorage.setItem('token', res.token);
-        this.setCurrentUser(res.user);
-      })
+  /** Registers a customer account, then signs the new customer in. */
+  register(data: { username: string; email: string; password: string; phone?: string }): Observable<User> {
+    return this.http.post<any>(`${this.apiUrl}/auth/register`, {
+      username: data.username,
+      email: data.email,
+      password: data.password,
+      phone: data.phone || null
+    }).pipe(
+      switchMap(() => this.login({ email: data.email, password: data.password }))
     );
   }
 
-  adminLogin(credentials: { email: string; password: string }): Observable<{ token: string; user: User }> {
-    return this.http.post<{ token: string; user: User }>(`${this.apiUrl}/admin/login`, credentials).pipe(
-      tap(res => {
-        localStorage.setItem('token', res.token);
-        this.setCurrentUser(res.user);
-      })
+  adminLogin(credentials: { email: string; password: string }): Observable<User> {
+    return this.http.post<any>(`${this.apiUrl}/admin/auth/login`, {
+      email: credentials.email,
+      password: credentials.password
+    }).pipe(
+      map(mapUser),
+      tap(user => this.setCurrentUser(user))
     );
+  }
+
+  /** Admin-only: creates another admin account without switching the current session. */
+  createAdmin(data: { username: string; email: string; phone?: string; password: string; confirmPassword: string }): Observable<User> {
+    return this.http.post<any>(`${this.apiUrl}/admin/auth/register`, {
+      username: data.username,
+      email: data.email,
+      phone: data.phone || null,
+      password: data.password,
+      confirmPassword: data.confirmPassword
+    }).pipe(map(mapUser));
   }
 
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     const wasAdmin = this.isAdmin;
-    this.currentUserSubject.next(null);
-    if (wasAdmin) {
-      this.router.navigate(['/backoffice/login']);
-    } else {
-      this.router.navigate(['/']);
-    }
+    this.http.post(`${this.apiUrl}/auth/logout`, {}).pipe(
+      catchError(() => of(null)),
+      finalize(() => {
+        this.clearSession();
+        this.router.navigate([wasAdmin ? '/backoffice/login' : '/']);
+      })
+    ).subscribe();
+  }
+
+  /** Called by the HTTP interceptor when the server reports that the session has ended. */
+  handleSessionExpired(): void {
+    if (!this.isLoggedIn) return;
+    const wasAdmin = this.isAdmin;
+    this.clearSession();
+    const returnUrl = this.router.url;
+    this.router.navigate([wasAdmin ? '/backoffice/login' : '/auth/login'], {
+      queryParams: wasAdmin ? {} : { returnUrl }
+    });
   }
 
   setCurrentUser(user: User): void {
-    localStorage.setItem('user', JSON.stringify(user));
     this.currentUserSubject.next(user);
   }
 
-  updateProfile(data: { username: string; email: string; phone?: string }): Observable<any> {
-    return this.http.put(`${environment.apiUrl}/account/profile`, data).pipe(
-      tap((res: any) => {
-        if (res.user) {
-          this.setCurrentUser({ ...this.currentUserValue!, ...res.user });
+  private clearSession(): void {
+    // Remove values written by older builds of this frontend.
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch { /* storage unavailable */ }
+    this.currentUserSubject.next(null);
+  }
+
+  /**
+   * Updates the signed-in account's name, email and phone.
+   * Changing the email signs the user out on the server, so the caller is told to log in again.
+   */
+  updateProfile(data: { username: string; email: string; phone?: string }): Observable<{ user: User; reauthenticationRequired: boolean }> {
+    const url = this.isAdmin ? `${this.apiUrl}/admin/profile` : `${this.apiUrl}/account/profile`;
+    return this.http.post<any>(url, {
+      username: data.username,
+      email: data.email,
+      phone: data.phone || ''
+    }).pipe(
+      map(res => ({ user: mapUser(res.user), reauthenticationRequired: !!res.reauthenticationRequired })),
+      tap(res => {
+        if (res.reauthenticationRequired) {
+          this.clearSession();
+        } else {
+          this.setCurrentUser(res.user);
         }
       })
     );
   }
 
-  changePassword(data: { currentPassword: string; newPassword: string; confirmPassword: string }): Observable<any> {
-    return this.http.put(`${environment.apiUrl}/account/password`, data);
+  /** Changing the password ends every session for the account, including this one. */
+  changePassword(data: { currentPassword: string; newPassword: string; confirmPassword: string }): Observable<{ message: string }> {
+    const url = this.isAdmin ? `${this.apiUrl}/admin/password` : `${this.apiUrl}/account/password`;
+    return this.http.post<{ message: string }>(url, data).pipe(
+      tap(() => this.clearSession())
+    );
+  }
+
+  forgotPassword(email: string): Observable<{ message: string; resetLink?: string }> {
+    return this.http.post<{ message: string; resetLink?: string }>(`${this.apiUrl}/auth/forgot-password`, { email });
+  }
+
+  checkResetToken(token: string): Observable<boolean> {
+    return this.http.get<{ valid: boolean }>(`${this.apiUrl}/auth/reset-password/${encodeURIComponent(token)}`).pipe(
+      map(res => !!res?.valid),
+      catchError(() => of(false))
+    );
+  }
+
+  resetPassword(token: string, newPassword: string, confirmPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/reset-password/${encodeURIComponent(token)}`, {
+      newPassword,
+      confirmPassword
+    });
   }
 }

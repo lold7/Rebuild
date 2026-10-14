@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, customerGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 
 // Webstore components
@@ -19,11 +19,17 @@ import { SearchResultsComponent } from './webstore/search-results/search-results
 import { ContactComponent } from './webstore/contact/contact.component';
 import { FaqComponent } from './webstore/faq/faq.component';
 import { ConditionComponent } from './webstore/condition/condition.component';
+import { OrderDetailComponent } from './webstore/order-detail/order-detail.component';
+import { NotFoundComponent } from './webstore/not-found/not-found.component';
+import { ForbiddenComponent } from './webstore/forbidden/forbidden.component';
 
 // Auth components
 import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { AdminLoginComponent } from './auth/admin-login/admin-login.component';
+import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
+import { ResetPasswordComponent } from './auth/reset-password/reset-password.component';
+import { AdminRegisterComponent } from './auth/admin-register/admin-register.component';
 
 // Backoffice components
 import { DashboardComponent } from './backoffice/dashboard/dashboard.component';
@@ -45,9 +51,11 @@ export const routes: Routes = [
   { path: 'checkout', component: CheckoutComponent, canActivate: [authGuard] },
   { path: 'checkout/payment', component: ChoosePaymentComponent, canActivate: [authGuard] },
   { path: 'account/wishlist', component: WishlistComponent, canActivate: [authGuard] },
-  { path: 'account/profile', component: ProfileComponent, canActivate: [authGuard] },
+  { path: 'account/profile', component: ProfileComponent, canActivate: [customerGuard] },
   { path: 'account/addresses', component: AddressBookComponent, canActivate: [authGuard] },
+  { path: 'account/payment-methods', component: ChoosePaymentComponent, canActivate: [authGuard], data: { mode: 'manage' } },
   { path: 'account/orders', component: OrderHistoryComponent, canActivate: [authGuard] },
+  { path: 'account/orders/:id', component: OrderDetailComponent, canActivate: [authGuard] },
   { path: 'search', component: SearchResultsComponent },
   { path: 'contact', component: ContactComponent },
   { path: 'faq', component: FaqComponent },
@@ -56,6 +64,8 @@ export const routes: Routes = [
   // Auth Routes
   { path: 'auth/login', component: LoginComponent },
   { path: 'auth/register', component: RegisterComponent },
+  { path: 'auth/forgot-password', component: ForgotPasswordComponent },
+  { path: 'auth/reset-password/:token', component: ResetPasswordComponent },
   { path: 'backoffice/login', component: AdminLoginComponent },
   { path: 'auth/admin-login', redirectTo: 'backoffice/login', pathMatch: 'full' },
 
@@ -68,7 +78,10 @@ export const routes: Routes = [
   { path: 'backoffice/orders', component: AdminOrdersComponent, canActivate: [adminGuard] },
   { path: 'backoffice/customers', component: CustomersComponent, canActivate: [adminGuard] },
   { path: 'backoffice/profile', component: AdminProfileComponent, canActivate: [adminGuard] },
+  { path: 'backoffice/register', component: AdminRegisterComponent, canActivate: [adminGuard] },
 
-  // Wildcard redirect
-  { path: '**', redirectTo: '' }
+  // Error pages
+  { path: 'forbidden', component: ForbiddenComponent },
+  { path: 'not-found', component: NotFoundComponent },
+  { path: '**', component: NotFoundComponent }
 ];

@@ -112,11 +112,25 @@ public class AdminOrderRepository {
             """, product.id(), adminId, product.quantity(), product.quantity() + quantity, "Cancelled order #" + orderId, orderId);
     }
 
-    void status(Header order, String target, long adminId, String reason) {
+    void reinstate(Stock product, long quantity, long orderId, long adminId) {
         if (jdbc.update("""
-            UPDATE orders SET status = ?, version = version + 1, stock_released = ?, updated_at = CURRENT_TIMESTAMP
+            UPDATE products SET product_quantity = product_quantity - ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = ? AND product_quantity >= ?
+            """, quantity, product.id(), quantity) != 1) throw AdminOrderException.insufficientStock();
+        jdbc.update("""
+            INSERT INTO inventory_adjustments (product_id, admin_user_id, quantity_before, quantity_after, reason, order_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, product.id(), adminId, product.quantity(), product.quantity() - quantity, "Reinstated order #" + orderId, orderId);
+    }
+
+    void status(Header order, String target, long adminId, String reason) {
+        // Cash on Delivery is collected when the order is completed.
+        if (jdbc.update("""
+            UPDATE orders SET status = ?, version = version + 1, stock_released = ?, updated_at = CURRENT_TIMESTAMP,
+                payment_status = CASE WHEN ? = 'completed' AND payment_method = 'CASH_ON_DELIVERY' AND payment_status = 'unpaid'
+                    THEN 'paid' ELSE payment_status END
             WHERE order_id = ? AND version = ?
-            """, target, target.equals("cancelled"), order.id(), order.version()) != 1) throw AdminOrderException.stale();
+            """, target, target.equals("cancelled"), target, order.id(), order.version()) != 1) throw AdminOrderException.stale();
         jdbc.update("""
             INSERT INTO order_status_changes (order_id, admin_user_id, previous_status, new_status, order_version, reason)
             VALUES (?, ?, ?, ?, ?, ?)

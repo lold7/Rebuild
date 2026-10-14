@@ -8,6 +8,13 @@
   <div class="row justify-content-center">
     <div class="col-lg-8">
 
+      @if (errorMessage) {
+        <div class="alert alert-danger rounded-4 d-flex justify-content-between align-items-center" id="cart-error">
+          <span>{{ errorMessage }}</span>
+          <button type="button" class="btn-close" (click)="errorMessage = ''" aria-label="Close"></button>
+        </div>
+      }
+
       @if (cartItems.length > 0) {
         <div id="cart-items-container">
           @for (item of cartItems; track item.cart_item_id) {
@@ -22,6 +29,9 @@
                     <h5 class="fw-bold text-primary mb-0">${{ (+item.product_price).toFixed(2) }}</h5>
                   </div>
                   <p class="text-muted small mb-4">{{ item.author ? 'By ' + item.author : 'Manage your selections and quantities.' }}</p>
+                  @if (itemWarning(item)) {
+                    <p class="text-danger small fw-bold mb-3">{{ itemWarning(item) }}</p>
+                  }
 
                   @if (item.selected_attributes?.format) {
                     <div class="mb-3">
@@ -35,11 +45,11 @@
                   <div class="mt-auto d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center gap-3">
                       <div class="d-flex align-items-center border rounded-3 bg-white overflow-hidden">
-                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="decreaseQuantity(item)">
+                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="decreaseQuantity(item)" [disabled]="item.quantity <= 1">
                           <mat-icon>remove</mat-icon>
                         </button>
                         <input type="number" class="form-control text-center item-qty bg-white border-0 p-0" [value]="item.quantity" min="1" readonly style="width: 45px;">
-                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="increaseQuantity(item)">
+                        <button class="btn btn-light border-0 px-2 py-1" type="button" (click)="increaseQuantity(item)" [disabled]="item.quantity >= 10">
                           <mat-icon>add</mat-icon>
                         </button>
                       </div>

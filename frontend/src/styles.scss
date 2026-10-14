@@ -2091,3 +2091,61 @@ textarea.editor-textarea {
     opacity: 1;
     transform: translateY(0);
 }
+/* ==========================================
+   Bootstrap utility emulation — additions used by alerts, order statuses,
+   back-office tables and pagination (same palette as the rules above).
+   ========================================== */
+.alert {
+  position: relative;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+.alert-danger { color: #b91c1c; background-color: #fee2e2; border-color: #fecaca; }
+.alert-success { color: #15803d; background-color: #dcfce7; border-color: #bbf7d0; }
+.alert-dismissible { padding-right: 3rem; }
+.alert-dismissible .btn-close { position: absolute; top: 0.6rem; right: 0.75rem; }
+.btn-close {
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.6;
+  flex-shrink: 0;
+  &::before { content: '\00d7'; font-size: 1.25rem; line-height: 1; color: currentColor; }
+  &:hover { opacity: 1; }
+}
+.form-text { margin-top: 0.25rem; font-size: 0.8rem; }
+
+.bg-success { background-color: #16a34a !important; color: #fff; }
+.bg-danger { background-color: #ef4444 !important; color: #fff; }
+.bg-warning { background-color: #fbbf24 !important; }
+.bg-info { background-color: #67e8f9 !important; }
+.bg-info-subtle { background-color: #cffafe !important; color: #0e7490 !important; }
+.text-info { color: #0e7490 !important; }
+.bg-secondary-subtle { background-color: #e5e7eb !important; }
+.text-secondary { color: #6b7280 !important; }
+
+/* Out-of-stock rows in the back office are highlighted in red */
+.table-danger > td,
+tr.table-danger td { background-color: #fee2e2 !important; }
+
+.pagination { display: flex; list-style: none; padding-left: 0; gap: 0.25rem; margin: 0; }
+.page-link {
+  display: block;
+  min-width: 2rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #3b5bdb;
+  font-size: 0.85rem;
+  text-align: center;
+  cursor: pointer;
+}
+.page-item.active .page-link { background: #3b5bdb; border-color: #3b5bdb; color: #fff; }
+.page-item.disabled .page-link { color: #adb5bd; pointer-events: none; }

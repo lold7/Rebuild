@@ -130,12 +130,13 @@ class WishlistIntegrationTest {
         Browser admin = new Browser();
         assertThat(admin.request("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")).statusCode())
             .isEqualTo(200);
-        assertThat(admin.get("/api/account/wishlist").statusCode()).isEqualTo(403);
-        assertThat(admin.get("/api/account/wishlist/1").statusCode()).isEqualTo(403);
+        // Admins can use the storefront with their own wishlist; customers' wishlists stay untouched.
+        assertThat(admin.get("/api/account/wishlist").statusCode()).isEqualTo(200);
+        assertThat(admin.get("/api/account/wishlist/1").statusCode()).isEqualTo(200);
         for (String endpoint : List.of("add", "remove", "toggle")) {
-            assertThat(admin.post(endpoint, 1).statusCode()).isEqualTo(403);
+            assertThat(admin.post(endpoint, 1).statusCode()).isEqualTo(200);
         }
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM wishlist", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM wishlist w JOIN users u ON u.user_id = w.user_id WHERE u.role = 'customer'", Integer.class)).isZero();
     }
 
     @Test
@@ -232,8 +233,9 @@ class WishlistIntegrationTest {
             assertThat(wishlist.list("alice@example.com").totalItems()).isZero();
             assertThatThrownBy(() -> wishlist.list("another@example.com")).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> wishlist.add("another@example.com", 1)).isInstanceOf(AccessDeniedException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> wishlist.list("alice@example.com")).isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();

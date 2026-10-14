@@ -113,7 +113,10 @@ public class AdminCategoryService {
     private String image(String value) {
         if (value == null || value.isBlank()) return null;
         String normalized = value.trim();
-        if (!normalized.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) throw AdminCategoryException.invalid("categoryImage must be a filename reference");
+        // Either an uploaded/frontend filename or an image hosted on another website (as in the original store).
+        boolean filename = normalized.matches("[A-Za-z0-9][A-Za-z0-9._-]*");
+        boolean webUrl = normalized.matches("https?://[^\\s\"'<>]+");
+        if (!filename && !webUrl) throw AdminCategoryException.invalid("categoryImage must be a filename or an http(s) image URL");
         return normalized;
     }
 

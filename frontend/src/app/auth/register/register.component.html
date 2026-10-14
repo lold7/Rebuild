@@ -18,12 +18,12 @@
             }
             <div class="row g-3 mb-4">
               <div class="col-md-6">
-                <label class="form-label fw-bold small">First name</label>
-                <input type="text" id="reg-firstname" formControlName="username" class="form-control bg-light border-0 rounded-3 py-2" required>
+                <label class="form-label fw-bold small">Username</label>
+                <input type="text" id="reg-username" formControlName="username" class="form-control bg-light border-0 rounded-3 py-2" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-bold small">Last name</label>
-                <input type="text" id="reg-lastname" formControlName="phone" class="form-control bg-light border-0 rounded-3 py-2">
+                <label class="form-label fw-bold small">Phone number</label>
+                <input type="tel" id="reg-phone" formControlName="phone" class="form-control bg-light border-0 rounded-3 py-2">
               </div>
             </div>
             <div class="row g-3 mb-4">
@@ -33,7 +33,7 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold small">Password</label>
-                <input type="password" id="reg-password" formControlName="password" class="form-control bg-light border-0 rounded-3 py-2" required>
+                <input type="password" id="reg-password" formControlName="password" class="form-control bg-light border-0 rounded-3 py-2" placeholder="At least 8 characters" required>
               </div>
             </div>
 
@@ -67,7 +67,7 @@
               </div>
             </div>
 
-            <button type="submit" [disabled]="registerForm.invalid || isLoading" class="btn btn-primary rounded-pill py-2 fw-bold w-25 mt-2">
+            <button type="submit" [disabled]="isLoading" class="btn btn-primary rounded-pill py-2 fw-bold w-25 mt-2">
               {{ isLoading ? 'Submitting...' : 'Submit' }}
             </button>
           </form>

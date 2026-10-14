@@ -1,107 +1,186 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm py-3">
-  <div class="container d-flex align-items-center flex-wrap">
+<nav class="custom-navbar sticky-top bg-white shadow-sm">
+  <div class="container navbar-container">
 
-    <!-- Mobile Logo & Toggler -->
-    <a class="navbar-brand d-lg-none mx-auto" routerLink="/">
-      <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
+    <!-- Brand Logo -->
+    <a class="navbar-brand d-flex align-items-center m-0" routerLink="/">
+      <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo">
     </a>
-    <button class="navbar-toggler border-0 position-absolute end-0 me-3 d-lg-none" type="button" (click)="toggleMobileMenu()" aria-label="Toggle navigation">
-      <mat-icon class="fs-3">menu</mat-icon>
-    </button>
 
-    <!-- Main Navigation Bar -->
-    <div class="collapse navbar-collapse d-lg-flex" [class.show]="isMobileMenuOpen" id="mainNavbar">
-      <!-- Left nav links -->
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0 col-lg-4 d-flex flex-lg-row flex-column list-unstyled gap-lg-3">
-        <li class="nav-item">
-          <a class="nav-link fw-bold text-dark text-decoration-none py-2" routerLink="/products" (click)="isMobileMenuOpen = false">All Products</a>
-        </li>
+    <!-- Desktop Navigation Links -->
+    <ul class="nav-links d-none d-lg-flex align-items-center list-unstyled mb-0 gap-1">
+      <li class="nav-item">
+        <a class="nav-link-btn" routerLink="/products">All Products</a>
+      </li>
 
-        <li class="nav-item dropdown position-relative">
-          <button class="nav-link fw-bold text-dark border-0 bg-transparent py-2 d-flex align-items-center gap-1 cursor-pointer" [matMenuTriggerFor]="categoryMenu">
-            Categories <mat-icon class="small">keyboard_arrow_down</mat-icon>
-          </button>
-          <mat-menu #categoryMenu="matMenu" class="category-dropdown-menu">
-            <a mat-menu-item routerLink="/category/fiction" (click)="isMobileMenuOpen = false">Fiction</a>
-            <a mat-menu-item routerLink="/category/nonfiction" (click)="isMobileMenuOpen = false">Non-fiction</a>
-            <a mat-menu-item routerLink="/category/children" (click)="isMobileMenuOpen = false">Children's Books</a>
-            <a mat-menu-item routerLink="/category/mystery" (click)="isMobileMenuOpen = false">Mystery & Thriller</a>
-            <a mat-menu-item routerLink="/category/science" (click)="isMobileMenuOpen = false">Science & Tech</a>
-            <mat-divider></mat-divider>
-            <a mat-menu-item routerLink="/categories" class="text-primary fw-bold" (click)="isMobileMenuOpen = false">View All Categories</a>
-          </mat-menu>
-        </li>
-
-        <li class="nav-item dropdown position-relative">
-          <button class="nav-link fw-bold text-dark border-0 bg-transparent py-2 d-flex align-items-center gap-1 cursor-pointer" [matMenuTriggerFor]="moreMenu">
-            More <mat-icon class="small">keyboard_arrow_down</mat-icon>
-          </button>
-          <mat-menu #moreMenu="matMenu">
-            <a mat-menu-item routerLink="/contact" (click)="isMobileMenuOpen = false">Contact</a>
-            <a mat-menu-item routerLink="/account/profile" (click)="isMobileMenuOpen = false">Account</a>
-            <a mat-menu-item routerLink="/cart" (click)="isMobileMenuOpen = false">Cart</a>
-          </mat-menu>
-        </li>
-      </ul>
-
-      <!-- Center logo (desktop only) -->
-      <div class="d-none d-lg-flex col-lg-4 justify-content-center">
-        <a class="navbar-brand m-0" routerLink="/">
-          <img src="/images/Logo.png" alt="InwZa Bookstore Logo" class="navbar-logo" width="100">
-        </a>
-      </div>
-
-      <!-- Right: search + cart + profile button -->
-      <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-lg-auto col-lg-4 justify-content-lg-end gap-2">
-        <form (ngSubmit)="onSearch()" class="d-flex position-relative my-2 my-lg-0">
-          <input [(ngModel)]="searchQuery" name="q" class="form-control rounded-pill pe-5 bg-light border-0 w-100" type="search" placeholder="Search products..." aria-label="Search">
-          <mat-icon class="position-absolute top-50 end-0 translate-middle-y me-3 text-muted" (click)="onSearch()" style="cursor: pointer;">search</mat-icon>
-        </form>
-
-        <a routerLink="/cart" (click)="isMobileMenuOpen = false" class="btn btn-outline-dark rounded-pill px-3 mt-2 mt-lg-0 position-relative d-inline-flex align-items-center justify-content-center">
-          <mat-icon class="fs-5">shopping_cart</mat-icon>
-          @if ((cartService.cartCount$ | async); as count) {
-            @if (count > 0) {
-              <span class="cart-badge badge bg-primary rounded-pill position-absolute" style="font-size:0.65rem; top:-5px; right:-5px;">{{ count }}</span>
-            }
+      <li class="nav-item">
+        <button class="nav-link-btn" [matMenuTriggerFor]="categoryMenu">
+          Categories <mat-icon class="dropdown-icon">keyboard_arrow_down</mat-icon>
+        </button>
+        <mat-menu #categoryMenu="matMenu" class="category-dropdown-menu">
+          @for (cat of categories; track cat.category_id) {
+            <a mat-menu-item [routerLink]="['/category', cat.slug || cat.category_id]">{{ cat.category_name }}</a>
           }
-        </a>
+          <mat-divider></mat-divider>
+          <a mat-menu-item routerLink="/categories" class="text-primary fw-bold">View All Categories</a>
+        </mat-menu>
+      </li>
 
-        @if (authService.currentUser$ | async; as user) {
-          <div class="dropdown mt-2 mt-lg-0">
-            <button class="btn btn-primary rounded-pill px-4 d-flex align-items-center gap-2" [matMenuTriggerFor]="userMenu">
-              <span>{{ user.username }}</span>
-              <mat-icon class="small">keyboard_arrow_down</mat-icon>
-            </button>
-            <mat-menu #userMenu="matMenu">
-              <a mat-menu-item routerLink="/account/profile" (click)="isMobileMenuOpen = false">
-                <mat-icon class="me-2">person</mat-icon> Profile
-              </a>
-              <a mat-menu-item routerLink="/account/orders" (click)="isMobileMenuOpen = false">
-                <mat-icon class="me-2">receipt_long</mat-icon> Order History
-              </a>
-              <a mat-menu-item routerLink="/account/wishlist" (click)="isMobileMenuOpen = false">
-                <mat-icon class="me-2">favorite_border</mat-icon> Wishlist
-              </a>
-              <a mat-menu-item routerLink="/account/addresses" (click)="isMobileMenuOpen = false">
-                <mat-icon class="me-2">location_on</mat-icon> Address Book
-              </a>
-              @if (user.role === 'admin') {
-                <a mat-menu-item routerLink="/backoffice" (click)="isMobileMenuOpen = false">
-                  <mat-icon class="me-2">dashboard</mat-icon> Admin Panel
-                </a>
-              }
-              <mat-divider></mat-divider>
-              <button mat-menu-item (click)="logout()">
-                <mat-icon class="me-2 text-danger">logout</mat-icon> Logout
-              </button>
-            </mat-menu>
-          </div>
-        } @else {
-          <a routerLink="/auth/login" (click)="isMobileMenuOpen = false" class="btn btn-primary rounded-pill px-4 mt-2 mt-lg-0">Login</a>
+      <li class="nav-item">
+        <button class="nav-link-btn" [matMenuTriggerFor]="moreMenu">
+          More <mat-icon class="dropdown-icon">keyboard_arrow_down</mat-icon>
+        </button>
+        <mat-menu #moreMenu="matMenu">
+          <a mat-menu-item routerLink="/contact">Contact</a>
+          <a mat-menu-item routerLink="/account/profile">Account</a>
+          <a mat-menu-item routerLink="/cart">Cart</a>
+        </mat-menu>
+      </li>
+    </ul>
+
+    <!-- Center Search Bar (Desktop) -->
+    <div class="search-wrapper d-none d-lg-block">
+      <form (ngSubmit)="onSearch()" class="search-form position-relative">
+        <input
+          [(ngModel)]="searchQuery"
+          name="q"
+          class="form-control search-input"
+          type="search"
+          placeholder="Search books, authors..."
+          aria-label="Search">
+        <button type="submit" class="search-btn" aria-label="Search button">
+          <mat-icon class="search-icon">search</mat-icon>
+        </button>
+      </form>
+    </div>
+
+    <!-- Right Actions: Cart & Profile / Login (Desktop) -->
+    <div class="nav-actions d-none d-lg-flex align-items-center gap-2">
+      <!-- Cart Button -->
+      <a routerLink="/cart" class="cart-btn" aria-label="Shopping Cart">
+        <mat-icon>shopping_cart</mat-icon>
+        @if ((cartService.cartCount$ | async); as count) {
+          @if (count > 0) {
+            <span class="cart-badge">{{ count }}</span>
+          }
         }
-      </div>
+      </a>
+
+      <!-- User Menu / Login Button -->
+      @if (authService.currentUser$ | async; as user) {
+        <button class="btn btn-primary user-btn rounded-pill px-3 d-flex align-items-center gap-1" [matMenuTriggerFor]="userMenu">
+          <span class="user-name text-truncate" style="max-width: 120px;">{{ user.username }}</span>
+          <mat-icon class="dropdown-icon">keyboard_arrow_down</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <a mat-menu-item routerLink="/account/profile">
+            <mat-icon class="me-2">person</mat-icon> Profile
+          </a>
+          <a mat-menu-item routerLink="/account/orders">
+            <mat-icon class="me-2">receipt_long</mat-icon> Order History
+          </a>
+          <a mat-menu-item routerLink="/account/wishlist">
+            <mat-icon class="me-2">favorite_border</mat-icon> Wishlist
+          </a>
+          <a mat-menu-item routerLink="/account/addresses">
+            <mat-icon class="me-2">location_on</mat-icon> Address Book
+          </a>
+          @if (user.role === 'admin') {
+            <a mat-menu-item routerLink="/backoffice">
+              <mat-icon class="me-2">dashboard</mat-icon> Admin Panel
+            </a>
+          }
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon class="me-2 text-danger">logout</mat-icon> Logout
+          </button>
+        </mat-menu>
+      } @else {
+        <a routerLink="/auth/login" class="btn btn-primary rounded-pill px-4">Login</a>
+      }
+    </div>
+
+    <!-- Mobile Header Actions (Cart + Hamburger Toggler) -->
+    <div class="mobile-header-actions d-flex d-lg-none align-items-center gap-2">
+      <a routerLink="/cart" (click)="isMobileMenuOpen = false" class="cart-btn" aria-label="Shopping Cart">
+        <mat-icon>shopping_cart</mat-icon>
+        @if ((cartService.cartCount$ | async); as count) {
+          @if (count > 0) {
+            <span class="cart-badge">{{ count }}</span>
+          }
+        }
+      </a>
+      <button class="menu-toggler" type="button" (click)="toggleMobileMenu()" aria-label="Toggle navigation">
+        <mat-icon>{{ isMobileMenuOpen ? 'close' : 'menu' }}</mat-icon>
+      </button>
     </div>
 
   </div>
+
+  <!-- Mobile Collapsible Menu -->
+  @if (isMobileMenuOpen) {
+    <div class="mobile-drawer d-lg-none">
+      <div class="container py-3">
+        <!-- Mobile Search -->
+        <form (ngSubmit)="onSearch()" class="search-form mb-3 position-relative">
+          <input
+            [(ngModel)]="searchQuery"
+            name="q"
+            class="form-control search-input"
+            type="search"
+            placeholder="Search books, authors..."
+            aria-label="Search">
+          <button type="submit" class="search-btn" aria-label="Search button">
+            <mat-icon class="search-icon">search</mat-icon>
+          </button>
+        </form>
+
+        <!-- Mobile Links -->
+        <ul class="mobile-nav-list list-unstyled mb-3">
+          <li>
+            <a class="mobile-nav-link" routerLink="/products" (click)="isMobileMenuOpen = false">
+              <mat-icon class="me-2">menu_book</mat-icon> All Products
+            </a>
+          </li>
+          <li>
+            <a class="mobile-nav-link" routerLink="/categories" (click)="isMobileMenuOpen = false">
+              <mat-icon class="me-2">category</mat-icon> Categories
+            </a>
+          </li>
+          <li>
+            <a class="mobile-nav-link" routerLink="/contact" (click)="isMobileMenuOpen = false">
+              <mat-icon class="me-2">mail</mat-icon> Contact
+            </a>
+          </li>
+        </ul>
+
+        <!-- Mobile User Section -->
+        <div class="mobile-auth-section pt-3 border-top">
+          @if (authService.currentUser$ | async; as user) {
+            <div class="d-flex align-items-center justify-content-between mb-3 px-2">
+              <span class="fw-semibold">Signed in as <strong>{{ user.username }}</strong></span>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <a routerLink="/account/profile" (click)="isMobileMenuOpen = false" class="btn btn-outline-dark rounded-pill">
+                My Profile
+              </a>
+              @if (user.role === 'admin') {
+                <a routerLink="/backoffice" (click)="isMobileMenuOpen = false" class="btn btn-outline-primary rounded-pill">
+                  Admin Panel
+                </a>
+              }
+              <button (click)="logout()" class="btn btn-danger rounded-pill">
+                Logout
+              </button>
+            </div>
+          } @else {
+            <div class="d-flex flex-column gap-2">
+              <a routerLink="/auth/login" (click)="isMobileMenuOpen = false" class="btn btn-primary rounded-pill">
+                Login / Register
+              </a>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
 </nav>

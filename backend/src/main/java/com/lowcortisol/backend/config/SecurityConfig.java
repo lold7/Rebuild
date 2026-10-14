@@ -123,6 +123,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-password/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // Storefront shopping features are available to customers and to admins browsing the store.
+                .requestMatchers("/api/cart", "/api/cart/**", "/api/checkout", "/api/orders", "/api/orders/**",
+                    "/api/account/orders", "/api/account/wishlist", "/api/account/wishlist/**",
+                    "/api/account/addresses", "/api/account/addresses/**",
+                    "/api/account/payment-methods", "/api/account/payment-methods/**").hasAnyRole("CUSTOMER", "ADMIN")
                 .requestMatchers("/api/**").hasRole("CUSTOMER")
                 .anyRequest().denyAll())
             .rememberMe(config -> config.key(key).rememberMeServices(rememberMe))

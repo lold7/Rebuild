@@ -5,7 +5,7 @@
         <li class="breadcrumb-item"><a routerLink="/" class="text-decoration-none text-muted">Home</a> /</li>
         <li class="breadcrumb-item"><a routerLink="/categories" class="text-decoration-none text-muted">Categories</a> /</li>
         @if (product.category_name) {
-          <li class="breadcrumb-item"><a routerLink="/categories" class="text-decoration-none text-muted">{{ product.category_name }}</a> /</li>
+          <li class="breadcrumb-item"><a [routerLink]="product.category_slug ? ['/category', product.category_slug] : ['/categories']" class="text-decoration-none text-muted">{{ product.category_name }}</a> /</li>
         }
         <li class="breadcrumb-item active fw-bold text-dark" aria-current="page">{{ product.product_name }}</li>
       </ol>
@@ -27,7 +27,11 @@
           <span class="badge bg-light text-dark border mb-2">{{ product.category_name || 'Book' }}</span>
           <h1 class="display-5 fw-bold mb-2">{{ product.product_name }}</h1>
           <p class="text-muted fs-5 mb-3">By {{ product.author || 'Unknown Author' }}</p>
-          <h2 class="fw-bold text-primary mb-4">${{ (+product.product_price).toFixed(2) }}</h2>
+          <h2 class="fw-bold text-primary mb-2">${{ (+product.product_price).toFixed(2) }}</h2>
+          <span id="stock-status" class="badge rounded-pill mb-4 px-3 py-2 fw-normal"
+            [ngClass]="isOutOfStock ? 'bg-danger-subtle text-danger' : (stockLabel === 'In Stock' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-dark')">
+            {{ stockLabel }}
+          </span>
           <p class="text-muted" style="line-height: 1.8;">
             {{ product.product_description }}
           </p>
@@ -50,14 +54,14 @@
             <button class="btn btn-light border-0 rounded-0 px-3 py-2" type="button" (click)="decreaseQty()">
               <mat-icon>remove</mat-icon>
             </button>
-            <input [(ngModel)]="quantity" type="number" class="form-control text-center bg-white border-0 p-0" min="1" max="10" style="width: 50px;" readonly>
+            <input [(ngModel)]="quantity" type="number" class="form-control text-center bg-white border-0 p-0" min="1" [max]="maxQuantity" style="width: 50px;" readonly>
             <button class="btn btn-light border-0 rounded-0 px-3 py-2" type="button" (click)="increaseQty()">
               <mat-icon>add</mat-icon>
             </button>
           </div>
 
-          <button (click)="addToCart()" class="btn btn-primary rounded-pill px-5 py-2 fw-bold flex-grow-1">
-            <mat-icon class="me-2">add_shopping_cart</mat-icon> Add to Cart
+          <button (click)="addToCart()" [disabled]="isOutOfStock" class="btn btn-primary rounded-pill px-5 py-2 fw-bold flex-grow-1">
+            <mat-icon class="me-2">add_shopping_cart</mat-icon> {{ isOutOfStock ? 'Out of Stock' : 'Add to Cart' }}
           </button>
 
           <button (click)="toggleWishlist()" type="button" class="btn btn-outline-dark rounded-pill px-3 py-2">
@@ -72,4 +76,6 @@
       </div>
     </div>
   </section>
+} @else if (notFound) {
+  <app-not-found message="This book is not available."></app-not-found>
 }

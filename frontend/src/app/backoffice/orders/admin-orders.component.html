@@ -25,6 +25,7 @@
         <div class="order-tabs d-flex align-items-center gap-1">
           <button (click)="filterByStatus('')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === '' ? 'btn-primary' : 'btn-light'">All Orders</button>
           <button (click)="filterByStatus('pending')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'pending' ? 'btn-primary' : 'btn-light'">Pending</button>
+          <button (click)="filterByStatus('processing')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'processing' ? 'btn-primary' : 'btn-light'">Processing</button>
           <button (click)="filterByStatus('completed')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'completed' ? 'btn-primary' : 'btn-light'">Completed</button>
           <button (click)="filterByStatus('cancelled')" class="btn btn-sm border-0 rounded-pill px-3" [ngClass]="statusFilter === 'cancelled' ? 'btn-primary' : 'btn-light'">Cancelled</button>
         </div>
@@ -33,7 +34,7 @@
         <div class="d-flex align-items-center gap-3">
           <div class="search-bar position-relative" style="width: 250px;">
             <mat-icon class="position-absolute top-50 translate-middle-y ms-3 text-muted">search</mat-icon>
-            <input type="text" [(ngModel)]="searchQuery" class="form-control ps-5 text-dark" placeholder="Search order ID, customer...">
+            <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" class="form-control ps-5 text-dark" placeholder="Search order ID, customer..." id="order-search">
           </div>
         </div>
       </div>
@@ -76,10 +77,12 @@
                         [ngClass]="{
                           'bg-success-subtle text-success': order.status === 'completed',
                           'bg-danger-subtle text-danger': order.status === 'cancelled',
-                          'bg-warning-subtle text-warning': order.status === 'pending'
+                          'bg-warning-subtle text-warning': order.status === 'pending',
+                          'bg-info-subtle text-info': order.status === 'processing'
                         }"
                         style="cursor:pointer; width: auto; font-size: 0.8rem;">
                         <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
@@ -120,7 +123,11 @@
         <p class="mb-1"><strong>Customer:</strong> {{ selectedOrder.username || 'Customer' }}</p>
         <p class="mb-1"><strong>Date:</strong> {{ selectedOrder.created_at | date:'medium' }}</p>
         <p class="mb-1"><strong>Total:</strong> ${{ (+selectedOrder.total_price).toFixed(2) }}</p>
-        <p class="mb-3"><strong>Payment:</strong> {{ selectedOrder.payment_method }}</p>
+        <p class="mb-1"><strong>Payment:</strong> {{ selectedOrder.payment_method }} ({{ selectedOrder.payment_status | titlecase }})</p>
+        <p class="mb-1"><strong>Status:</strong> {{ selectedOrder.status | titlecase }}</p>
+        @if (selectedOrder.address) {
+          <p class="mb-3"><strong>Ship to:</strong> {{ selectedOrder.address.full_name }}, {{ selectedOrder.address.address_line }}, {{ selectedOrder.address.city }} {{ selectedOrder.address.postal_code }}</p>
+        }
 
         <h6 class="fw-bold border-top pt-3">Items:</h6>
         @if (selectedOrder.items && selectedOrder.items.length > 0) {
@@ -129,7 +136,7 @@
               <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                 <div>
                   <span class="fw-semibold">{{ item.product_name }}</span>
-                  <br><small class="text-muted">Qty: {{ item.quantity }}</small>
+                  <br><small class="text-muted">{{ item.selected_attributes?.format ? item.selected_attributes?.format + ' · ' : '' }}Qty: {{ item.quantity }}</small>
                 </div>
                 <span class="fw-bold">${{ (+item.unit_price * item.quantity).toFixed(2) }}</span>
               </li>

@@ -235,7 +235,7 @@ class AdminCategoryIntegrationTest {
         for (var field : List.of(Map.entry("categoryName", " "), Map.entry("categoryName", "x".repeat(101)),
             Map.entry("slug", ""), Map.entry("slug", "123"), Map.entry("slug", "not--valid"),
             Map.entry("slug", "not/valid"), Map.entry("slug", "123-456"), Map.entry("slug", "élèves"), Map.entry("slug", "x".repeat(121)),
-            Map.entry("categoryImage", "../file.png"), Map.entry("categoryImage", "https://example.com/img.png"),
+            Map.entry("categoryImage", "../file.png"), Map.entry("categoryImage", "javascript:alert(1)"),
             Map.entry("categoryImage", "x".repeat(501)), Map.entry("expectedVersion", 0), Map.entry("categoryId", 1),
             Map.entry("productCount", 99), Map.entry("adminUserId", 999), Map.entry("role", "admin"), Map.entry("isVisible", "invalid"))) {
             Map<String, Object> request = new HashMap<>(Map.of("categoryName", "New category"));

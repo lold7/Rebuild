@@ -73,7 +73,8 @@ public class AdminProductRepository {
             VALUES (?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?) RETURNING product_id
             """, Long.class, request.categoryId(), request.productName().trim(), request.productDescription(), request.productPrice(),
             images.toString(), attributes.toString(), request.productQuantity() == null ? 0 : request.productQuantity(),
-            request.isVisible() == null || request.isVisible());
+            // A book added without stock starts hidden.
+            (request.isVisible() == null || request.isVisible()) && request.productQuantity() != null && request.productQuantity() > 0);
     }
 
     void update(long id, ProductWriteRequest request, JsonNode images, JsonNode attributes, int quantity, boolean visible) {
@@ -87,10 +88,17 @@ public class AdminProductRepository {
     }
 
     void stock(long id, int quantity, long version) {
+        // Visibility follows stock: zero hides the book, restocking from zero shows it again,
+        // and otherwise the admin's choice (including a manual hide) is kept.
         if (jdbc.update("""
-            UPDATE products SET product_quantity = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+            UPDATE products SET is_visible = CASE WHEN ? <= 0 THEN FALSE WHEN product_quantity <= 0 THEN TRUE ELSE is_visible END,
+                product_quantity = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
             WHERE product_id = ? AND version = ?
-            """, quantity, id, version) != 1) throw AdminProductException.stale();
+            """, quantity, quantity, id, version) != 1) throw AdminProductException.stale();
+    }
+
+    boolean hasOrders(long id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM order_items WHERE product_id = ?)", Boolean.class, id));
     }
 
     void visibility(long id, boolean visible, long version) {

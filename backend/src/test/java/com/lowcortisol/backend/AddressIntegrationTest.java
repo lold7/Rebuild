@@ -201,9 +201,10 @@ class AddressIntegrationTest {
             "Admin", "admin@example.com", encoder.encode("correct-password"));
         Browser admin = new Browser();
         ok(admin.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")));
-        assertThat(admin.get("/api/account/addresses").statusCode()).isEqualTo(403);
+        // Admins can use the storefront with their own address book.
+        assertThat(admin.get("/api/account/addresses").statusCode()).isEqualTo(200);
         for (String path : List.of("/add", "/delete/1", "/default/1")) {
-            assertThat(admin.post("/api/account/addresses" + path, Map.of()).statusCode()).isEqualTo(403);
+            assertThat(admin.post("/api/account/addresses" + path, Map.of()).statusCode()).isNotIn(401, 403);
         }
         Browser customer = customer("alice@example.com");
         long id = customer.add("Original", false);
@@ -238,8 +239,9 @@ class AddressIntegrationTest {
             assertThat(addresses.list("alice@example.com").totalAddresses()).isZero();
             assertThatThrownBy(() -> addresses.list("other@example.com")).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> addresses.setDefault("other@example.com", 1)).isInstanceOf(AccessDeniedException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> addresses.add("alice@example.com", new AddAddressRequest("Home", "Alice", null, "Street", null, null, null, false)))
                 .isInstanceOf(AccessDeniedException.class);
         } finally {

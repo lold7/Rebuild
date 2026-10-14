@@ -174,6 +174,21 @@ class AdminDashboardIntegrationTest {
     }
 
     @Test
+    void recentOrdersArePagedTenAtATime() throws Exception {
+        Browser admin = admin(); long alice = customer("alice");
+        String date = today() + "T10:00:00Z";
+        for (int i = 0; i < 13; i++) seed(alice, "pending", "unpaid", "1.00", date);
+        JsonNode first = ok(admin.get(API));
+        assertThat(first.get("recentOrdersPage").asInt()).isEqualTo(1);
+        assertThat(first.get("recentOrdersTotalPages").asLong()).isEqualTo(2);
+        JsonNode second = ok(admin.get(API + "?page=2"));
+        assertThat(second.get("recentOrders").size()).isEqualTo(3);
+        assertThat(second.at("/recentOrders/0/orderId").asLong()).isLessThan(first.at("/recentOrders/9/orderId").asLong());
+        assertThat(ok(admin.get(API + "?page=5")).get("recentOrders").isEmpty()).isTrue();
+        assertThat(admin.get(API + "?page=0").statusCode()).isEqualTo(400);
+    }
+
+    @Test
     void dailyTrendUsesUtcInclusiveDatesAndExcludesOrdersOutsideTheWindow() throws Exception {
         Browser admin = admin(); long alice = customer("alice"); LocalDate today = today();
         seed(alice, "pending", "unpaid", "10.00", today + "T00:00:00Z");

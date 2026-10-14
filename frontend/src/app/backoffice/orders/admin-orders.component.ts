@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../core/services/admin.service';
-import { Order } from '../../core/models/models';
+import { apiErrorMessage } from '../../core/utils/api.utils';
+import { Order, OrderStatus } from '../../core/models/models';
 import { AdminSidebarComponent } from '../../shared/components/admin-sidebar/admin-sidebar.component';
 import { AdminTopbarComponent } from '../../shared/components/admin-topbar/admin-topbar.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -44,9 +45,11 @@ export class AdminOrdersComponent implements OnInit {
     this.loadOrders();
   }
 
+  private searchTimer: any;
+
   loadOrders(): void {
     this.isLoading = true;
-    this.adminService.getOrders(this.statusFilter || undefined).subscribe({
+    this.adminService.getOrders(this.statusFilter || undefined, this.searchQuery).subscribe({
       next: (data) => {
         this.orders = data || [];
         this.isLoading = false;
@@ -62,25 +65,35 @@ export class AdminOrdersComponent implements OnInit {
     this.loadOrders();
   }
 
-  onStatusChange(order: Order, newStatus: string): void {
-    this.adminService.updateOrderStatus(order.order_id, newStatus).subscribe({
-      next: () => {
-        order.status = newStatus as any;
+  /** Cancelling returns the items to stock; reversing a cancellation takes them out of stock again. */
+  onStatusChange(order: Order, newStatus: OrderStatus): void {
+    const previous = order.status;
+    order.status = newStatus;
+    this.adminService.updateOrderStatus(order.order_id, newStatus, order.version ?? 0).subscribe({
+      next: (updated) => {
+        Object.assign(order, { status: updated.status, version: updated.version, stock_released: updated.stock_released });
         this.snackBar.open(`Order #${order.order_id} status updated to ${newStatus}`, 'Close', { duration: 2500 });
+        if (this.statusFilter && this.statusFilter !== newStatus) this.loadOrders();
       },
-      error: () => {
-        this.snackBar.open('Failed to update order status', 'Close', { duration: 2500 });
+      error: (err) => {
+        order.status = previous;
+        const message = err.error?.code === 'INSUFFICIENT_STOCK'
+          ? 'Not enough stock to reinstate this order.'
+          : apiErrorMessage(err, 'Failed to update order status');
+        this.snackBar.open(message, 'Close', { duration: 3500 });
+        this.loadOrders();
       }
     });
   }
 
+  /** Search by order number or customer name (on the server). */
+  onSearchChange(): void {
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadOrders(), 300);
+  }
+
   get filteredOrders(): Order[] {
-    if (!this.searchQuery.trim()) return this.orders;
-    const q = this.searchQuery.toLowerCase();
-    return this.orders.filter(o =>
-      String(o.order_id).includes(q) ||
-      (o.username && o.username.toLowerCase().includes(q))
-    );
+    return this.orders;
   }
 
   getInitials(name?: string): string {

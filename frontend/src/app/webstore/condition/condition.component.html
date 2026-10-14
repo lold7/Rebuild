@@ -1,17 +1,49 @@
 <!-- ========== HEADER SECTION ========== -->
 <section class="already-hero text-center py-5" id="already-hero">
   <div class="container">
-    <h1 class="display-4 fw-bold">Welcome back</h1>
-    <p class="text-muted">Sign in to your account and continue browsing your favorite books</p>
+    <h1 class="display-4 fw-bold">Policies &amp; Conditions</h1>
+    <p class="text-muted">Everything you need to know about returns, privacy, and shopping with us</p>
   </div>
 </section>
 
+<!-- ========== POLICY SECTION ========== -->
+<section class="existing-section py-5 bg-light" id="policies">
+  <div class="container text-center mb-5">
+    <span class="section-label text-muted text-uppercase small fw-bold">Store policies</span>
+    <h2 class="fw-bold">How we look after your orders</h2>
+    <p class="section-subtitle text-muted">Last updated 2025</p>
+  </div>
+
+  <div class="container">
+    <div class="row g-4 justify-content-center" style="max-width: 820px; margin: 0 auto;">
+      @for (policy of policies; track policy.id) {
+        <div class="col-md-6" [id]="policy.id" style="scroll-margin-top: 110px;">
+          <div class="card p-4 border rounded-4 h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+            <div>
+              <span class="text-muted text-uppercase small fw-bold">{{ policy.label }}</span>
+              <h3 class="fw-bold mt-2">{{ policy.title }}</h3>
+              <ul class="text-muted small ps-3 mb-0">
+                @for (line of policy.points; track line) {
+                  <li class="mb-1">{{ line }}</li>
+                }
+              </ul>
+            </div>
+            <a [routerLink]="policy.link" class="text-dark fw-bold text-decoration-none mt-3">{{ policy.action }} <mat-icon>chevron_right</mat-icon></a>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+@if (!(authService.currentUser$ | async)) {
+
 <!-- ========== FEATURE LIST SECTION ========== -->
-<section class="existing-section py-5 bg-light" id="feature-list">
+<section class="existing-section py-5" id="feature-list">
   <div class="container text-center mb-5">
     <span class="section-label text-muted text-uppercase small fw-bold">Existing</span>
     <h2 class="fw-bold">Already have an account</h2>
-    <p class="section-subtitle text-muted">Sign in with your credentials now</p>
+    <p class="section-subtitle text-muted">Sign in to track orders and request returns</p>
   </div>
 
   <div class="container">
@@ -41,3 +73,4 @@
     </div>
   </div>
 </section>
+}

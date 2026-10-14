@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { ProductService } from '../../core/services/product.service';
 import { Product } from '../../core/models/models';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-search-results',
@@ -45,17 +46,6 @@ export class SearchResultsComponent implements OnInit {
   }
 
   getImageUrl(images: string[] | string): string {
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }

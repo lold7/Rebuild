@@ -21,8 +21,8 @@
           <a routerLink="/backoffice/products" class="btn btn-white border rounded-3 fw-medium px-4 bg-white text-muted shadow-sm">
             Cancel
           </a>
-          <button (click)="onSubmit()" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
-            <mat-icon>check</mat-icon> {{ isEditMode ? 'Update Product' : 'Publish Product' }}
+          <button (click)="onSubmit()" [disabled]="isSaving" class="btn btn-primary rounded-3 fw-medium px-4 d-flex align-items-center gap-2 shadow-sm">
+            <mat-icon>check</mat-icon> {{ isSaving ? 'Saving...' : (isEditMode ? 'Update Product' : 'Publish Product') }}
           </button>
         </div>
       </div>
@@ -110,17 +110,20 @@
                   <mat-icon class="fs-2 text-primary">cloud_upload</mat-icon>
                 </div>
                 <div class="fw-bold mb-1 text-dark">Click to upload or drag and drop</div>
-                <div class="small text-muted font-size-12">SVG, PNG, JPG or GIF (max. 3MB)</div>
-                <input type="file" (change)="onFileSelected($event)" multiple accept="image/*" class="form-control mt-3">
+                <div class="small text-muted font-size-12">PNG or JPG, up to 5 images (max. 5MB each)</div>
+                <input type="file" (change)="onFileSelected($event)" multiple accept="image/png,image/jpeg" class="form-control mt-3" id="product-images">
+                @if (selectedFiles.length > 0) {
+                  <div class="small text-muted mt-2">{{ selectedFiles.length }} new image(s) selected</div>
+                }
               </div>
 
               @if (existingImages.length > 0) {
                 @for (img of existingImages; track img) {
                   <div class="uploaded-file d-flex align-items-center gap-3 p-2 border rounded-2 mb-2 bg-light">
-                    <img [src]="'/images/products/' + img" width="36" height="48" alt="Book cover" style="object-fit:cover;" class="rounded">
+                    <img [src]="imageUrl(img)" width="36" height="48" alt="Book cover" style="object-fit:cover;" class="rounded">
                     <div class="file-details">
                       <div class="fw-semibold font-size-14 text-dark text-truncate" style="max-width: 150px;">{{ img }}</div>
-                      <div class="text-muted font-size-12">Existing image</div>
+                      <div class="text-muted font-size-12">{{ selectedFiles.length > 0 ? 'Will be replaced' : 'Existing image' }}</div>
                     </div>
                   </div>
                 }

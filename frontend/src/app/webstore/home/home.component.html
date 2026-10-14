@@ -36,11 +36,13 @@
     </div>
 
     <!-- Carousel Indicators -->
+    @if (slideCount > 0) {
     <div class="carousel-indicators d-flex justify-content-center gap-2 mb-0">
       @for (item of [].constructor(slideCount); track $index) {
         <button type="button" (click)="goToSlide($index)" class="indicator-dot rounded-circle border-0" [class.active]="$index === currentSlide"></button>
       }
     </div>
+    }
 
     <!-- Controls -->
     <button class="carousel-control-prev border-0 bg-transparent" type="button" (click)="prevSlide()">

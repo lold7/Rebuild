@@ -6,6 +6,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { CartService } from '../../core/services/cart.service';
 import { WishlistItem } from '../../core/models/models';
+import { apiErrorMessage } from '../../core/utils/api.utils';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-wishlist',
@@ -45,14 +47,14 @@ export class WishlistComponent implements OnInit {
       next: () => {
         this.snackBar.open(`"${item.product_name}" added to cart!`, 'Close', { duration: 3000 });
       },
-      error: () => {
-        this.snackBar.open('Failed to add to cart', 'Close', { duration: 3000 });
+      error: (err) => {
+        this.snackBar.open(apiErrorMessage(err, 'Failed to add to cart'), 'Close', { duration: 3000 });
       }
     });
   }
 
   removeFromWishlist(item: WishlistItem): void {
-    this.wishlistService.toggleWishlist(item.product_id).subscribe({
+    this.wishlistService.removeFromWishlist(item.product_id).subscribe({
       next: () => {
         this.wishlistItems = this.wishlistItems.filter(i => i.product_id !== item.product_id);
         this.snackBar.open('Removed from wishlist', 'Close', { duration: 2500 });
@@ -67,24 +69,13 @@ export class WishlistComponent implements OnInit {
     if (this.wishlistItems.length === 0) return;
     const itemsToRemove = [...this.wishlistItems];
     itemsToRemove.forEach(item => {
-      this.wishlistService.toggleWishlist(item.product_id).subscribe();
+      this.wishlistService.removeFromWishlist(item.product_id).subscribe();
     });
     this.wishlistItems = [];
     this.snackBar.open('Wishlist cleared', 'Close', { duration: 2500 });
   }
 
   getImageUrl(images: string[] | string): string {
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }

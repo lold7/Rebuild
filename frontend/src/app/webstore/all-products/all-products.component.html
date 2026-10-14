@@ -24,9 +24,10 @@
   </div>
 
   <div class="d-flex justify-content-center mt-5">
-    <mat-paginator [length]="products.length"
+    <mat-paginator [length]="totalItems"
                    [pageSize]="pageSize"
-                   [pageSizeOptions]="[8, 12, 16, 24]"
+                   [pageIndex]="currentPage"
+                   [hidePageSize]="true"
                    (page)="onPageChange($event)"
                    aria-label="Select page">
     </mat-paginator>

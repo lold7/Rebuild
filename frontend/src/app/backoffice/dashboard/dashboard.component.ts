@@ -28,11 +28,20 @@ export class DashboardComponent implements OnInit {
     recentOrders: []
   };
   isLoading = true;
+  /** Recent orders are shown 10 per page. */
+  page = 1;
+  totalPages = 0;
 
   ngOnInit(): void {
-    this.adminService.getDashboard().subscribe({
+    this.load(1);
+  }
+
+  load(page: number): void {
+    this.adminService.getDashboard(page).subscribe({
       next: (res) => {
         this.stats = res;
+        this.page = res.recentPage;
+        this.totalPages = res.recentTotalPages;
         this.isLoading = false;
       },
       error: () => {

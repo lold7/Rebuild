@@ -15,7 +15,7 @@
     <div class="col-lg-4 d-flex flex-column gap-4">
       @if (getCategory('Fiction'); as fiction) {
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 position-relative category-card" [routerLink]="['/category', getSlug(fiction.category_name)]">
-          <img [src]="fiction.category_image || defaultImages['Fiction']" class="w-100 h-100" style="object-fit: cover;" [alt]="fiction.category_name">
+          <img [src]="imageFor(fiction, 'Fiction')" class="w-100 h-100" style="object-fit: cover;" [alt]="fiction.category_name">
           <div class="card-img-overlay d-flex flex-column justify-content-end p-4" style="background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0) 60%);">
             <h4 class="fw-bold text-white mb-1">{{ fiction.category_name }}</h4>
             <p class="text-white-50 small mb-3">{{ defaultDescs['Fiction'] }}</p>
@@ -26,7 +26,7 @@
 
       @if (getCategory('Non-Fiction'); as nonfiction) {
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 position-relative category-card" [routerLink]="['/category', getSlug(nonfiction.category_name)]">
-          <img [src]="nonfiction.category_image || defaultImages['Non-Fiction']" class="w-100 h-100" style="object-fit: cover;" [alt]="nonfiction.category_name">
+          <img [src]="imageFor(nonfiction, 'Non-Fiction')" class="w-100 h-100" style="object-fit: cover;" [alt]="nonfiction.category_name">
           <div class="card-img-overlay d-flex flex-column justify-content-end p-4" style="background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0) 60%);">
             <h4 class="fw-bold text-white mb-1">{{ nonfiction.category_name }}</h4>
             <p class="text-white-50 small mb-3">{{ defaultDescs['Non-Fiction'] }}</p>
@@ -47,7 +47,7 @@
               <a [routerLink]="['/category', getSlug(children.category_name)]" class="text-dark fw-bold text-decoration-none mt-3">Browse <mat-icon class="small">chevron_right</mat-icon></a>
             </div>
             <div class="col-md-6">
-              <img [src]="children.category_image || defaultImages['Children']" class="img-fluid h-100 w-100" [alt]="children.category_name" style="object-fit: cover;">
+              <img [src]="imageFor(children, 'Children')" class="img-fluid h-100 w-100" [alt]="children.category_name" style="object-fit: cover;">
             </div>
           </div>
         </div>
@@ -68,7 +68,7 @@
     @if (getCategory('Mystery & Thriller'); as mystery) {
       <div class="col-md-6">
         <div class="card border-0">
-          <img [src]="mystery.category_image || defaultImages['Mystery & Thriller']" class="card-img-top rounded-4 mb-3" [alt]="mystery.category_name" style="height: 250px; object-fit: cover;">
+          <img [src]="imageFor(mystery, 'Mystery & Thriller')" class="card-img-top rounded-4 mb-3" [alt]="mystery.category_name" style="height: 250px; object-fit: cover;">
           <div class="card-body px-0">
             <h4 class="fw-bold">Mystery and thriller</h4>
             <p class="text-muted small mb-3">{{ defaultDescs['Mystery & Thriller'] }}</p>
@@ -86,7 +86,7 @@
     @if (getCategory('Science & Technology'); as science) {
       <div class="col-md-6">
         <div class="card border-0">
-          <img [src]="science.category_image || defaultImages['Science & Technology']" class="card-img-top rounded-4 mb-3" [alt]="science.category_name" style="height: 250px; object-fit: cover;">
+          <img [src]="imageFor(science, 'Science & Technology')" class="card-img-top rounded-4 mb-3" [alt]="science.category_name" style="height: 250px; object-fit: cover;">
           <div class="card-body px-0">
             <h4 class="fw-bold">Science and technology</h4>
             <p class="text-muted small mb-3">{{ defaultDescs['Science & Technology'] }}</p>
@@ -102,6 +102,31 @@
     }
   </div>
 </section>
+
+@if (moreCategories.length > 0) {
+<!-- More categories (added by an admin) -->
+<section class="container my-5 py-4" id="more-categories">
+  <div class="text-center mb-5">
+    <span class="text-muted text-uppercase small fw-bold">New</span>
+    <h2 class="fw-bold">More categories</h2>
+    <p class="text-muted small">Fresh additions to our shelves.</p>
+  </div>
+
+  <div class="row g-4">
+    @for (cat of moreCategories; track cat.category_id) {
+      <div class="col-md-4">
+        <div class="card border-0">
+          <img [src]="imageFor(cat, '')" class="card-img-top rounded-4 mb-3" [alt]="cat.category_name" style="height: 250px; object-fit: cover;">
+          <div class="card-body px-0">
+            <h4 class="fw-bold">{{ cat.category_name }}</h4>
+            <a [routerLink]="['/category', cat.slug || cat.category_id]" class="text-dark fw-bold text-decoration-none">Browse <mat-icon class="small">chevron_right</mat-icon></a>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</section>
+}
 
 <!-- Call to action Banner -->
 <section class="container my-5 pb-5">

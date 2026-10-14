@@ -236,7 +236,23 @@ class AdminProductIntegrationTest {
         assertThat(log.get("delta").asLong()).isEqualTo(-74);
         assertThat(log.get("reason").asText()).isEqualTo("Damaged copies");
         assertThat(log.get("adminUserId").asLong()).isEqualTo(admin.userId);
+        // Setting stock to zero hides the book; restocking shows it again.
+        assertThat(updated.get("isVisible").asBoolean()).isFalse();
+        assertThat(new Browser().get("/api/products/1").statusCode()).isEqualTo(404);
+        JsonNode restocked = ok(admin.send("PUT", "/api/admin/products/1/stock", Map.of("quantity", 5, "expectedVersion", 1, "reason", "Restock")));
+        assertThat(restocked.get("isVisible").asBoolean()).isTrue();
         assertThat(new Browser().get("/api/products/1").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void manuallyHiddenProductsStayHiddenWhenStockChanges() throws Exception {
+        Browser admin = admin();
+        ok(admin.send("PUT", "/api/admin/products/1/visibility", Map.of("isVisible", false, "expectedVersion", 0)));
+        JsonNode updated = ok(admin.send("PUT", "/api/admin/products/1/stock", Map.of("quantity", 60, "expectedVersion", 1, "reason", "Count")));
+        assertThat(updated.get("isVisible").asBoolean()).isFalse();
+        Map<String, Object> created = new HashMap<>(Map.of("categoryId", 1, "productName", "No stock yet", "productPrice", 5, "productQuantity", 0));
+        JsonNode product = created(admin.send("POST", "/api/admin/products", created));
+        assertThat(product.get("isVisible").asBoolean()).isFalse();
     }
 
     @Test
@@ -304,19 +320,23 @@ class AdminProductIntegrationTest {
     }
 
     @Test
-    void deletionClearsLiveCartAndWishlistButPreservesOrders() throws Exception {
+    void productsInPastOrdersCannotBeDeletedButOthersClearCartAndWishlist() throws Exception {
         Browser admin = admin();
         Browser customer = customer();
         customer.add(1, 1);
         JsonNode order = created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")));
-        customer.add(1, 2);
-        ok(customer.send("POST", "/api/account/wishlist/add", Map.of("productId", 1)));
         assertError(admin.send("DELETE", "/api/admin/products/1?expectedVersion=0", Map.of()), 409, "STALE_PRODUCT_VERSION");
-        assertThat(admin.send("DELETE", "/api/admin/products/1?expectedVersion=1", Map.of()).statusCode()).isEqualTo(204);
-        assertThat(admin.get("/api/admin/products/1").statusCode()).isEqualTo(404);
+        // A book that appears in past orders must be hidden instead of deleted.
+        assertError(admin.send("DELETE", "/api/admin/products/1?expectedVersion=1", Map.of()), 409, "PRODUCT_IN_ORDERS");
+        assertThat(admin.get("/api/admin/products/1").statusCode()).isEqualTo(200);
+        assertThat(ok(customer.get("/api/orders/" + order.get("orderId").asLong()))).isEqualTo(order);
+
+        customer.add(2, 2);
+        ok(customer.send("POST", "/api/account/wishlist/add", Map.of("productId", 2)));
+        assertThat(admin.send("DELETE", "/api/admin/products/2?expectedVersion=0", Map.of()).statusCode()).isEqualTo(204);
+        assertThat(admin.get("/api/admin/products/2").statusCode()).isEqualTo(404);
         assertThat(ok(customer.get("/api/cart")).get("totalItems").asInt()).isZero();
         assertThat(ok(customer.get("/api/account/wishlist")).get("items").size()).isZero();
-        assertThat(ok(customer.get("/api/orders/" + order.get("orderId").asLong()))).isEqualTo(order);
         assertThat(ok(customer.get("/api/account/orders")).get("items").get(0)).isEqualTo(order);
     }
 

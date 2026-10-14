@@ -26,10 +26,10 @@ import org.springframework.validation.annotation.Validated;
 
 @Service
 @Validated
-@PreAuthorize("hasRole('CUSTOMER') && #email == authentication.name")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN') && #email == authentication.name")
 public class OrderService {
     private static final int HISTORY_PAGE_SIZE = 15;
-    private static final Set<String> ORDER_STATUSES = Set.of("pending", "completed", "cancelled");
+    private static final Set<String> ORDER_STATUSES = Set.of("pending", "processing", "completed", "cancelled");
     private final CustomerAccountRepository customers;
     private final CartService cart;
     private final AddressService addresses;
@@ -96,7 +96,7 @@ public class OrderService {
         }
         String filter = status == null ? null : status.trim().toLowerCase(Locale.ROOT);
         if (filter != null && !ORDER_STATUSES.contains(filter)) {
-            throw OrderException.invalid("status must be pending, completed, or cancelled");
+            throw OrderException.invalid("status must be pending, processing, completed, or cancelled");
         }
         long userId = customers.customerId(email, false);
         long total = orders.historyCount(userId, filter);

@@ -213,9 +213,10 @@ class CartIntegrationTest {
             "Admin", "admin@example.com", encoder.encode("correct-password"));
         Browser admin = new Browser();
         assertThat(admin.request("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
-        assertThat(admin.get("/api/cart").statusCode()).isEqualTo(403);
+        // Admins can use the storefront with their own cart.
+        assertThat(admin.get("/api/cart").statusCode()).isEqualTo(200);
         for (String endpoint : List.of("add", "update", "remove", "clear")) {
-            assertThat(admin.request("/api/cart/" + endpoint, Map.of()).statusCode()).isEqualTo(403);
+            assertThat(admin.request("/api/cart/" + endpoint, Map.of()).statusCode()).isNotIn(401, 403);
         }
     }
 
@@ -279,8 +280,9 @@ class CartIntegrationTest {
             assertThatThrownBy(() -> cart.view("another@example.com")).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> cart.add("another@example.com", new AddCartItemRequest(1L, 1, "Paperback")))
                 .isInstanceOf(AccessDeniedException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> cart.clear("alice@example.com")).isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();

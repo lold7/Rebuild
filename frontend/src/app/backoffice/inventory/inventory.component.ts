@@ -3,7 +3,10 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../../core/services/admin.service';
+import { AdminService, ProductForm } from '../../core/services/admin.service';
+import { productImageUrl } from '../../core/models/mappers';
+import { apiErrorMessage } from '../../core/utils/api.utils';
+import { Observable, forkJoin, of, switchMap } from 'rxjs';
 import { ProductService } from '../../core/services/product.service';
 import { Category, Product } from '../../core/models/models';
 import { AdminSidebarComponent } from '../../shared/components/admin-sidebar/admin-sidebar.component';
@@ -45,6 +48,12 @@ export class InventoryComponent implements OnInit {
     tags: ''
   };
 
+  /** Formats saved on the product before editing; kept when the admin leaves the format unchanged. */
+  private originalFormats: string[] = [];
+  private version = 0;
+  isSaving = false;
+  readonly maxImages = 5;
+
   ngOnInit(): void {
     this.adminService.getCategories().subscribe({
       next: (data) => this.categories = data || []
@@ -61,96 +70,116 @@ export class InventoryComponent implements OnInit {
   }
 
   loadProduct(id: number): void {
-    this.productService.getProductById(id).subscribe({
-      next: (res) => {
-        const p = res.product;
-        this.formModel.product_name = p.product_name;
-        this.formModel.product_description = p.product_description || '';
-        this.formModel.product_price = p.product_price?.toString() || '';
-        this.formModel.category_id = p.category_id?.toString() || '';
-
-        // parse images
-        if (p.product_images) {
-          if (Array.isArray(p.product_images)) {
-            this.existingImages = p.product_images;
-          } else if (typeof p.product_images === 'string') {
-            try {
-              this.existingImages = JSON.parse(p.product_images);
-            } catch (_) {
-              this.existingImages = [p.product_images];
-            }
-          }
-        }
-
-        // parse attributes
-        if (p.product_attributes) {
-          let attrs: any = p.product_attributes;
-          if (typeof attrs === 'string') {
-            try { attrs = JSON.parse(attrs); } catch (_) {}
-          }
-          this.formModel.author = attrs?.author || p.author || '';
-          this.formModel.isbn = attrs?.isbn || '';
-          this.formModel.discount = attrs?.discount || '';
-          this.formModel.sku = attrs?.sku || '';
-          this.formModel.stock = attrs?.stock || '';
-          this.formModel.format = attrs?.format ? (Array.isArray(attrs.format) ? attrs.format[0] : attrs.format) : 'Hardcover';
-          this.formModel.tags = attrs?.tags ? (Array.isArray(attrs.tags) ? attrs.tags.join(', ') : attrs.tags) : '';
-        } else if (p.author) {
-          this.formModel.author = p.author;
-        }
+    this.adminService.getProduct(id).subscribe({
+      next: (p) => {
+        const attrs: any = p.product_attributes || {};
+        this.version = p.version ?? 0;
+        this.existingImages = p.product_images || [];
+        this.originalFormats = attrs.format || [];
+        this.formModel = {
+          product_name: p.product_name,
+          author: attrs.author || '',
+          isbn: attrs.isbn || '',
+          product_description: p.product_description || '',
+          product_price: p.product_price?.toString() || '',
+          discount: attrs.discount !== undefined && attrs.discount !== null ? String(attrs.discount) : '',
+          sku: attrs.sku || '',
+          stock: String(p.product_quantity ?? 0),
+          category_id: p.category_id?.toString() || '',
+          format: this.originalFormats[0] || 'Hardcover',
+          tags: Array.isArray(attrs.tags) ? attrs.tags.join(', ') : (attrs.tags || '')
+        };
+      },
+      error: (err) => {
+        this.snackBar.open(apiErrorMessage(err, 'Product not found'), 'Close', { duration: 3000 });
+        this.router.navigate(['/backoffice/products']);
       }
     });
   }
 
+  imageUrl(name: string): string {
+    return productImageUrl([name]);
+  }
+
   onFileSelected(event: any): void {
-    if (event.target.files && event.target.files.length > 0) {
-      this.selectedFiles = Array.from(event.target.files);
+    const files: File[] = Array.from(event.target.files || []);
+    const valid = files.filter(f => /^image\/(png|jpe?g)$/i.test(f.type));
+    if (valid.length < files.length) {
+      this.snackBar.open('Only PNG or JPEG images can be uploaded.', 'Close', { duration: 3000 });
     }
+    if (valid.length > this.maxImages) {
+      this.snackBar.open(`You can upload up to ${this.maxImages} images.`, 'Close', { duration: 3000 });
+    }
+    this.selectedFiles = valid.slice(0, this.maxImages);
   }
 
   onSubmit(): void {
-    if (!this.formModel.product_name || !this.formModel.product_price || !this.formModel.category_id) {
+    if (this.isSaving) return;
+    const m = this.formModel;
+    if (!m.product_name.trim() || !m.product_price || !m.category_id) {
       this.snackBar.open('Please fill in required fields (Name, Price, Category)', 'Close', { duration: 3000 });
       return;
     }
-
-    const formData = new FormData();
-    formData.append('product_name', this.formModel.product_name);
-    formData.append('author', this.formModel.author);
-    formData.append('isbn', this.formModel.isbn);
-    formData.append('product_description', this.formModel.product_description);
-    formData.append('product_price', this.formModel.product_price);
-    formData.append('discount', this.formModel.discount);
-    formData.append('sku', this.formModel.sku);
-    formData.append('stock', this.formModel.stock);
-    formData.append('category_id', this.formModel.category_id);
-    formData.append('format', this.formModel.format);
-    formData.append('tags', this.formModel.tags);
-
-    for (const file of this.selectedFiles) {
-      formData.append('product_images', file);
+    const price = Number(m.product_price);
+    const stock = m.stock === '' ? 0 : Number(m.stock);
+    const discount = m.discount === '' ? null : Number(m.discount);
+    if (!Number.isFinite(price) || price < 0) {
+      this.snackBar.open('Price must be a number of 0 or more', 'Close', { duration: 3000 });
+      return;
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      this.snackBar.open('Stock quantity must be a whole number of 0 or more', 'Close', { duration: 3000 });
+      return;
+    }
+    if (discount !== null && (!Number.isFinite(discount) || discount < 0 || discount > 100)) {
+      this.snackBar.open('Discount must be between 0 and 100', 'Close', { duration: 3000 });
+      return;
     }
 
-    if (this.isEditMode && this.productId) {
-      this.adminService.updateProduct(this.productId, formData).subscribe({
-        next: () => {
-          this.snackBar.open('Product updated successfully!', 'Close', { duration: 3000 });
-          this.router.navigate(['/backoffice/products']);
-        },
-        error: (err) => {
-          this.snackBar.open(err.error?.message || 'Failed to update product', 'Close', { duration: 3000 });
-        }
-      });
-    } else {
-      this.adminService.addProduct(formData).subscribe({
-        next: () => {
-          this.snackBar.open('Product published successfully!', 'Close', { duration: 3000 });
-          this.router.navigate(['/backoffice/products']);
-        },
-        error: (err) => {
-          this.snackBar.open(err.error?.message || 'Failed to add product', 'Close', { duration: 3000 });
-        }
-      });
-    }
+    const attributes: Record<string, any> = {};
+    if (m.author.trim()) attributes['author'] = m.author.trim();
+    if (m.isbn.trim()) attributes['isbn'] = m.isbn.trim();
+    if (m.sku.trim()) attributes['sku'] = m.sku.trim();
+    if (discount !== null) attributes['discount'] = Math.round(discount * 100) / 100;
+    // Keep every format of an existing book unless the admin picked a different one.
+    attributes['format'] = this.isEditMode && this.originalFormats.length > 0 && this.originalFormats[0] === m.format
+      ? this.originalFormats
+      : [m.format];
+    const tags = m.tags.split(',').map(t => t.trim()).filter(Boolean);
+    if (tags.length > 0) attributes['tags'] = tags;
+
+    this.isSaving = true;
+    const uploads = this.selectedFiles.map(file => this.adminService.uploadImage(file));
+    const images$: Observable<string[] | null> = uploads.length > 0 ? forkJoin(uploads) : of(null);
+    images$.pipe(
+      switchMap(uploaded => {
+        const form: ProductForm = {
+          categoryId: Number(m.category_id),
+          productName: m.product_name.trim(),
+          productDescription: m.product_description,
+          productPrice: Math.round(price * 100) / 100,
+          productQuantity: stock,
+          // No new upload: keep the existing images when editing.
+          productImages: uploaded ?? (this.isEditMode ? null : []),
+          productAttributes: attributes,
+          expectedVersion: this.version
+        };
+        return this.isEditMode && this.productId
+          ? this.adminService.updateProduct(this.productId, form)
+          : this.adminService.addProduct(form);
+      })
+    ).subscribe({
+      next: (saved) => {
+        this.isSaving = false;
+        let message = this.isEditMode ? 'Product updated successfully!' : 'Product published successfully!';
+        if (!saved.is_visible && stock === 0) message += ' It is hidden until it is restocked.';
+        this.snackBar.open(message, 'Close', { duration: 3500 });
+        this.router.navigate(['/backoffice/products']);
+      },
+      error: (err) => {
+        this.isSaving = false;
+        this.snackBar.open(apiErrorMessage(err, this.isEditMode ? 'Failed to update product' : 'Failed to add product'), 'Close', { duration: 4000 });
+      }
+    });
   }
 }

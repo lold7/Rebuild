@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@PreAuthorize("hasRole('CUSTOMER') && #email == authentication.name")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN') && #email == authentication.name")
 public class CheckoutService {
-    static final List<String> PAYMENT_METHODS = List.of("CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "DIGITAL_WALLET");
+    static final List<String> PAYMENT_METHODS = List.of("CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "DIGITAL_WALLET", "CASH_ON_DELIVERY");
     private final CartService cart;
     private final AddressService addresses;
     private final PaymentMethodService payments;

@@ -1,10 +1,11 @@
 import { MatIconModule } from '@angular/material/icon';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { OrderService } from '../../core/services/order.service';
 import { Order } from '../../core/models/models';
+import { productImageUrl } from '../../core/models/mappers';
 
 @Component({
   selector: 'app-order-history',
@@ -16,19 +17,28 @@ import { Order } from '../../core/models/models';
 })
 export class OrderHistoryComponent implements OnInit {
   private orderService = inject(OrderService);
+  private route = inject(ActivatedRoute);
 
   orders: Order[] = [];
   isLoading = true;
+  /** Set right after checkout to show the "Order placed successfully!" banner. */
+  placedOrderId: string | null = null;
+  page = 1;
+  totalPages = 0;
 
   ngOnInit(): void {
+    this.placedOrderId = this.route.snapshot.queryParamMap.get('placed');
     this.loadOrders();
   }
 
-  loadOrders(): void {
+  /** Newest first, 15 per page. */
+  loadOrders(page = 1): void {
     this.isLoading = true;
-    this.orderService.getUserOrders().subscribe({
-      next: (data) => {
-        this.orders = data || [];
+    this.orderService.getUserOrders(page).subscribe({
+      next: (res) => {
+        this.orders = res.items;
+        this.page = res.page;
+        this.totalPages = res.totalPages;
         this.isLoading = false;
       },
       error: () => {
@@ -38,18 +48,6 @@ export class OrderHistoryComponent implements OnInit {
   }
 
   getImageUrl(images: string[] | string | undefined): string {
-    if (!images) return '/images/Logo.png';
-    if (Array.isArray(images) && images.length > 0) {
-      return `/images/products/${images[0]}`;
-    }
-    if (typeof images === 'string') {
-      try {
-        const arr = JSON.parse(images);
-        return `/images/products/${arr[0]}`;
-      } catch (_) {
-        return `/images/products/${images}`;
-      }
-    }
-    return '/images/Logo.png';
+    return productImageUrl(images);
   }
 }

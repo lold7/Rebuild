@@ -158,7 +158,21 @@ class CheckoutIntegrationTest {
         assertThat(order.get("savedPaymentMethod").get("type").asText()).isEqualTo("DEBIT");
         assertThat(order.get("savedPaymentMethod").has("cvv")).isFalse();
         assertThat(order.get("savedPaymentMethod").has("cardNumber")).isFalse();
+        // Card orders are paid at checkout and complete immediately.
+        assertThat(order.get("status").asText()).isEqualTo("completed");
+        assertThat(order.get("paymentStatus").asText()).isEqualTo("paid");
+    }
+
+    @Test
+    void cashOnDeliveryOrdersStayPendingAndUnpaid() throws Exception {
+        Browser browser = customer("alice@example.com");
+        browser.address("Home", true);
+        browser.add(1, 1, "Paperback");
+        JsonNode order = created(browser.place(Map.of("paymentMethod", "CASH_ON_DELIVERY"), "cod-order"));
+        assertThat(order.get("paymentMethod").asText()).isEqualTo("CASH_ON_DELIVERY");
+        assertThat(order.get("status").asText()).isEqualTo("pending");
         assertThat(order.get("paymentStatus").asText()).isEqualTo("unpaid");
+        assertThat(order.get("savedPaymentMethod").isNull()).isTrue();
     }
 
     @Test
@@ -325,9 +339,10 @@ class CheckoutIntegrationTest {
             "Admin", "admin@example.com", encoder.encode("correct-password"));
         Browser admin = new Browser();
         ok(admin.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")));
-        assertThat(admin.get("/api/checkout").statusCode()).isEqualTo(403);
-        assertThat(admin.get("/api/orders/1").statusCode()).isEqualTo(403);
-        assertThat(admin.place(Map.of("paymentMethod", "BANK_TRANSFER"), "admin").statusCode()).isEqualTo(403);
+        // Admins can use the storefront checkout with their own (here empty) cart, but never see other users' orders.
+        assertThat(admin.get("/api/checkout").statusCode()).isEqualTo(200);
+        assertThat(admin.get("/api/orders/1").statusCode()).isEqualTo(404);
+        assertThat(admin.place(Map.of("paymentMethod", "BANK_TRANSFER"), "admin").statusCode()).isNotIn(200, 201, 401, 403);
         Browser browser = customer("alice@example.com");
         browser.add(1, 1, "Paperback");
         int before = stock(1);
@@ -425,8 +440,9 @@ class CheckoutIntegrationTest {
                 .isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> orders.create("alice@example.com", new CreateOrderRequest(-1L, "BANK_TRANSFER", null), "key"))
                 .isInstanceOf(ConstraintViolationException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> checkout.preview("alice@example.com")).isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();

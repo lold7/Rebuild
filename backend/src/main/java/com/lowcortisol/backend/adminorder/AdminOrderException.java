@@ -31,6 +31,10 @@ public class AdminOrderException extends RuntimeException {
         return new AdminOrderException(HttpStatus.CONFLICT, "INVALID_ORDER_STATUS_TRANSITION", "Completed and cancelled orders cannot change status");
     }
 
+    static AdminOrderException insufficientStock() {
+        return new AdminOrderException(HttpStatus.CONFLICT, "INSUFFICIENT_STOCK", "Not enough stock to reinstate this cancelled order");
+    }
+
     static AdminOrderException overflow() {
         return new AdminOrderException(HttpStatus.CONFLICT, "STOCK_RESTORE_OVERFLOW", "Restored quantity would exceed the product's inventory limit");
     }

@@ -15,7 +15,7 @@ import org.springframework.validation.annotation.Validated;
 @PreAuthorize("hasRole('ADMIN') && #email == authentication.name")
 public class AdminOrderService {
     private static final int PAGE_SIZE = 15;
-    private static final Set<String> STATUSES = Set.of("pending", "completed", "cancelled");
+    private static final Set<String> STATUSES = Set.of("pending", "processing", "completed", "cancelled");
     private final AdminOrderRepository orders;
 
     public AdminOrderService(AdminOrderRepository orders) { this.orders = orders; }
@@ -45,9 +45,19 @@ public class AdminOrderService {
         var current = order(id, true);
         if (request.expectedVersion() != current.version()) throw AdminOrderException.stale();
         if (current.status().equals(target)) return orders.response(current);
-        if (!current.status().equals("pending")) throw AdminOrderException.transition();
         long adminId = orders.adminId(email);
-        if (target.equals("cancelled")) {
+        if (current.stockReleased() && !target.equals("cancelled")) {
+            // Reversing a cancellation takes the books out of stock again, or fails without changing anything.
+            var products = orders.lockStock(id);
+            var quantities = orders.quantities(id);
+            for (var product : products) {
+                if (quantities.getOrDefault(product.id(), 0L) > product.quantity()) throw AdminOrderException.insufficientStock();
+            }
+            for (var product : products) {
+                long quantity = quantities.getOrDefault(product.id(), 0L);
+                if (quantity > 0) orders.reinstate(product, quantity, id, adminId);
+            }
+        } else if (target.equals("cancelled")) {
             // Lock products in checkout's order, then read live item references after any competing product deletion.
             var products = orders.lockStock(id);
             var quantities = orders.quantities(id);
@@ -71,7 +81,7 @@ public class AdminOrderService {
 
     private String status(String value) {
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if (!STATUSES.contains(normalized)) throw AdminOrderException.invalid("status must be pending, completed, or cancelled");
+        if (!STATUSES.contains(normalized)) throw AdminOrderException.invalid("status must be pending, processing, completed, or cancelled");
         return normalized;
     }
 

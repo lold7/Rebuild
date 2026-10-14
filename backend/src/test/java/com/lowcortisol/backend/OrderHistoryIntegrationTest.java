@@ -171,8 +171,10 @@ class OrderHistoryIntegrationTest {
             "Admin", "admin@example.com", encoder.encode("correct-password"));
         Browser admin = new Browser();
         ok(admin.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "correct-password")));
-        assertThat(admin.get(API).statusCode()).isEqualTo(403);
-        assertThat(admin.get(API + "?status=completed").statusCode()).isEqualTo(403);
+        // Admins see only their own storefront orders, never a customer's history.
+        JsonNode adminHistory = ok(admin.get(API));
+        assertThat(adminHistory.get("totalItems").asInt()).isZero();
+        assertThat(ok(admin.get(API + "?status=completed")).get("totalItems").asInt()).isZero();
     }
 
     @Test
@@ -259,8 +261,9 @@ class OrderHistoryIntegrationTest {
         try {
             assertThat(orders.history("alice@example.com", "1", null).totalItems()).isZero();
             assertThatThrownBy(() -> orders.history("other@example.com", "1", null)).isInstanceOf(AccessDeniedException.class);
+            // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
             assertThatThrownBy(() -> orders.history("alice@example.com", "1", null)).isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();

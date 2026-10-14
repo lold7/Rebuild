@@ -80,6 +80,10 @@ public class AdminProductService {
         JsonNode images = request.productImages() == null ? current.product().productImages() : images(request.productImages());
         int quantity = request.productQuantity() == null ? current.product().productQuantity() : request.productQuantity();
         boolean visible = request.isVisible() == null ? current.isVisible() : request.isVisible();
+        // Visibility follows stock: zero hides the book; restocking from zero shows it again
+        // unless the admin chose otherwise in this request; a manual hide is otherwise kept.
+        if (quantity <= 0) visible = false;
+        else if (current.product().productQuantity() <= 0 && request.isVisible() == null) visible = true;
         products.requireCategory(request.categoryId(), true);
         long adminId = products.adminId(email);
         try {
@@ -117,6 +121,7 @@ public class AdminProductService {
     public void delete(String email, long id, Long expectedVersion) {
         AdminProductResponse current = product(id, true);
         version(current, expectedVersion);
+        if (products.hasOrders(id)) throw AdminProductException.inOrders();
         products.delete(id, current.version());
     }
 
