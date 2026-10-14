@@ -9,6 +9,7 @@ import com.lowcortisol.backend.wishlist.InvalidWishlistRequestException;
 import com.lowcortisol.backend.address.AddressNotFoundException;
 import com.lowcortisol.backend.address.InvalidAddressRequestException;
 import com.lowcortisol.backend.cart.CartException;
+import com.lowcortisol.backend.payment.PaymentMethodException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -22,6 +23,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(PaymentMethodException.class)
+    ResponseEntity<ApiError> paymentMethodError(PaymentMethodException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(AddressNotFoundException.class)
     ResponseEntity<ApiError> addressNotFound(AddressNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError("ADDRESS_NOT_FOUND", exception.getMessage()));
