@@ -11,6 +11,7 @@ import com.lowcortisol.backend.address.InvalidAddressRequestException;
 import com.lowcortisol.backend.cart.CartException;
 import com.lowcortisol.backend.payment.PaymentMethodException;
 import com.lowcortisol.backend.order.OrderException;
+import com.lowcortisol.backend.adminproduct.AdminProductException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
@@ -22,9 +23,27 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiError> uploadTooLarge() {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(new ApiError("PRODUCT_IMAGE_TOO_LARGE", "Images must be at most 5 MiB"));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    ResponseEntity<ApiError> missingUpload() {
+        return ResponseEntity.badRequest().body(new ApiError("INVALID_PRODUCT_IMAGE", "A file upload is required"));
+    }
+
+    @ExceptionHandler(AdminProductException.class)
+    ResponseEntity<ApiError> adminProductError(AdminProductException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(OrderException.class)
     ResponseEntity<ApiError> orderError(OrderException exception) {
         return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));

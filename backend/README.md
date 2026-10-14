@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, and customer order history as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, and admin product/inventory management.
 
 ## Run with Docker
 
@@ -85,6 +85,18 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/orders` | Customer only. Creates a pending, unpaid order from the current cart; requires `Idempotency-Key` and CSRF headers. |
 | GET | `/api/orders/{id}` | Customer only. Retrieves an owned order with its saved shipping, product, price, and payment metadata. |
 | GET | `/api/account/orders` | Customer only. Lists owned orders, newest first, 15 per page; accepts `page` and optional `status`. |
+| GET | `/api/admin/products`, `/api/admin/inventory` | Admin only. Lists all products, including hidden ones, with paging, search, category, visibility, and stock filters. |
+| GET | `/api/admin/products/{id}` | Admin only. Retrieves product metadata, visibility, stock, and current version. |
+| POST | `/api/admin/products` | Admin only. Creates a product with optional initial stock, images, attributes, and visibility. |
+| PUT | `/api/admin/products/{id}` | Admin only. Updates product details; requires `expectedVersion`. |
+| PUT | `/api/admin/products/{id}/visibility` | Admin only. Sets product visibility; requires `expectedVersion`. |
+| PUT | `/api/admin/products/{id}/stock` | Admin only. Sets stock with a reason and `expectedVersion`, recording the adjustment transactionally. |
+| DELETE | `/api/admin/products/{id}?expectedVersion=0` | Admin only. Deletes the matching version, clears cart/wishlist references, and preserves order snapshots. |
+| GET | `/api/admin/products/{id}/stock-history` | Admin only. Lists recorded admin stock changes, 15 per page. |
+| GET | `/api/admin/inventory/summary` | Admin only. Returns product/unit totals, low/out-of-stock counts, and visible/hidden counts. |
+| GET | `/api/admin/categories` | Admin only. Lists existing categories, including hidden ones, for product assignment. |
+| POST | `/api/admin/product-images` | Admin only. Accepts a multipart `file` containing a PNG or JPEG, up to 5 MiB. |
+| GET | `/api/product-images/{name}` | Public. Serves an uploaded cover image using its server-generated name. |
 
 Registration body:
 
@@ -538,6 +550,97 @@ Start with `docker compose up --build` (or export `.env` and use `./mvnw spring-
 
 The setup is idempotent: an existing admin email is left unchanged, including its password. An email already owned by a customer causes startup to fail; it never promotes that customer. No default admin account or password is included in the schema.
 
+## Admin product and inventory management
+
+All management endpoints require an admin login. Service checks bind the acting admin to the authenticated identity. POST, PUT, and DELETE requests require the session cookie and a fresh CSRF token. CORS supports these methods for the configured frontend origins. Customer/guest requests are rejected with `403`/`401`.
+
+GET `/api/admin/products` and `/api/admin/inventory` share a paginated response `{ items, page, pageSize, totalItems, totalPages }`, with 15 products per page, newest first and ID descending to break timestamp ties. Each item contains `{ product, isVisible, categoryVisible, version, updatedAt }`; `product` uses the existing catalog's product response with actual `productQuantity`. Admin reads include hidden products and products in hidden categories. Count and page contents use one PostgreSQL snapshot.
+
+Filters may be combined:
+
+| Parameter | Behavior |
+| --- | --- |
+| `page` | Positive integer, default `1`, up to `2147483647`; out-of-range pages are empty with matching totals. |
+| `q` | At most 255 characters; searches title, description, author, and SKU, case insensitively. `%`, `_`, and `!` are literal characters. |
+| `categoryId` | Optional positive existing category ID, including a hidden category. |
+| `visibility` | `all` (default), `visible`, or `hidden`; visibility combines product and category visibility. |
+| `stock` | `all` (default), `out` (zero stock), or `low` (1 through the low-stock threshold). |
+| `lowStockThreshold` | Integer from 0 to 100000, default `5`; used for low-stock filtering and inventory summary. |
+
+GET `/api/admin/categories` returns category IDs/names/slugs/images, visibility, and product counts, including hidden categories. This provides the assignment options for products; category creation/editing is a separate feature.
+
+POST `/api/admin/products` example:
+
+```json
+{
+  "categoryId": 1,
+  "productName": "New book",
+  "productDescription": "A book description",
+  "productPrice": 14.25,
+  "productQuantity": 20,
+  "productImages": ["cover.png"],
+  "productAttributes": {
+    "author": "Author Name",
+    "isbn": "9780000000000",
+    "sku": "BOOK-001",
+    "format": ["Paperback", "Hardcover"],
+    "tags": ["fiction"]
+  },
+  "isVisible": true
+}
+```
+
+Creation returns `201` and `Location: /api/admin/products/{id}`. Category, name, and price are required. Names are trimmed and limited to 255 characters; descriptions are limited to 20000 characters. Prices must be nonnegative, with at most eight integer digits and two decimal places. Quantities must be whole nonnegative 32-bit integers. Omitted images/attributes default to `[]`/`{}`, stock to zero, and visibility to true. New products start at version zero. Hidden categories may be assigned, but their products remain hidden from the public catalog.
+
+Images are an array of up to ten nonblank filename references, at most 200 characters each, using letters, digits, dots, underscores, and hyphens and starting with a letter/digit. Attributes must be a JSON object, at most 50 fields and 16 KiB. Author/ISBN/SKU are trimmed strings limited to 255/32/100 characters. Nonblank SKUs are unique ignoring case and surrounding whitespace; a blank SKU is removed. `format` is a nonblank string or an array of up to ten distinct nonblank strings (50 characters each), normalized for whitespace. An empty format array means no format selection. Optional `discount` is a number from 0 to 100 with at most two decimal places; it is descriptive metadata and does not change the submitted catalog price. Additional metadata such as tags can be stored within the object limit. Stock is authoritative in `productQuantity`; duplicated stock/quantity attributes are rejected.
+
+PUT `/api/admin/products/{id}` requires category, name, price, and `expectedVersion`. It replaces these fields and the description (omitted/null clears the description). Omitted/null images, attributes, quantity, and visibility preserve their existing values; explicit `[]`/`{}` clears images/attributes. Quantity changes in this request are recorded as `Product edit`. Every successful metadata edit advances the version.
+
+Dedicated stock update:
+
+```json
+{
+  "quantity": 25,
+  "expectedVersion": 0,
+  "reason": "New delivery"
+}
+```
+
+PUT `/api/admin/products/{id}/stock` requires an absolute quantity, the current version, and a nonblank reason of up to 500 characters. Stock and its adjustment record commit together; storage failure rolls back quantity and version. History records initial stock, stock changes in product edits, and dedicated admin stock corrections, including the authenticated admin ID, previous/new quantities, generated delta, reason, and timestamp. GET `/api/admin/products/{id}/stock-history?page=1` returns a page of these records, newest first. Checkout deductions advance the version but are represented by orders rather than this admin-adjustment history.
+
+PUT `/api/admin/products/{id}/visibility` accepts `{ "isVisible": false, "expectedVersion": 0 }`. Setting the same quantity/visibility is a no-op after checking the version. A real mutation advances the version and update timestamp. Hiding products prevents public retrieval and marks existing cart/wishlist entries unavailable; it preserves stock and order history.
+
+Read the current version before editing, correcting stock, changing visibility, or deleting. Mutations lock the product and reject stale `expectedVersion` with `409` and `STALE_PRODUCT_VERSION`. Checkout also advances this version when it deducts stock, so stale admin forms cannot restore previously sold copies. Concurrent editors cannot overwrite each other. Reload after a conflict and review the current values before submitting a new edit.
+
+DELETE `/api/admin/products/{id}?expectedVersion={version}` returns `204`. PostgreSQL removes current cart/wishlist entries and this product's admin adjustment records, clears live product references from order items, and retains their product/format/price snapshots. Uploaded images are retained so past orders can still display their covers. Missing products/categories return `404` with `ADMIN_PRODUCT_NOT_FOUND`/`ADMIN_CATEGORY_NOT_FOUND`. Invalid IDs, filters, attributes, or missing versions return `400` with `INVALID_ADMIN_PRODUCT_REQUEST`; field validation uses `VALIDATION_ERROR`. Duplicate SKUs return `409` with `SKU_IN_USE`.
+
+GET `/api/admin/inventory/summary?lowStockThreshold=5` returns `{ totalProducts, totalUnits, outOfStockProducts, lowStockProducts, visibleProducts, hiddenProducts, lowStockThreshold }`. Counts include hidden inventory. Low-stock counts exclude zero-stock products; totals use PostgreSQL aggregates and 64-bit API values.
+
+### Cover images
+
+POST `/api/admin/product-images` uploads one multipart part named `file`. Supply the CSRF token in the header and let the browser set the multipart content type. PNG/JPEG images must be at most 5 MiB, 4096 pixels on each side, and ten million pixels in total. The backend decodes and re-encodes the image, strips original metadata/trailing payloads, and generates a UUID filename. It returns `201` with `{ "image": "uuid.png", "url": "/api/product-images/uuid.png" }` and a `Location` header. Store `image` in `productImages`, and use `url` to display that uploaded cover. Existing catalog image filenames continue to refer to frontend assets.
+
+```javascript
+const csrfResponse = await fetch(`${API}/api/auth/csrf`, { credentials: 'include' });
+const csrf = await csrfResponse.json();
+const form = new FormData();
+form.append('file', selectedFile);
+const response = await fetch(`${API}/api/admin/product-images`, {
+  method: 'POST', credentials: 'include', headers: { [csrf.headerName]: csrf.token }, body: form
+});
+if (!response.ok) throw new Error('Unable to upload cover');
+const cover = await response.json();
+const product = await apiPost('/api/admin/products', {
+  categoryId: 1, productName: 'New book', productPrice: 14.25,
+  productImages: [cover.image], productQuantity: 20,
+  productAttributes: { format: ['Paperback'] }
+});
+```
+
+Invalid images return `400` with `INVALID_PRODUCT_IMAGE`; oversized uploads return `413` with `PRODUCT_IMAGE_TOO_LARGE`. Missing image names return `404`; storage failures return `503` with `IMAGE_STORAGE_UNAVAILABLE`. Uploaded images are public, served with their detected content type, nosniff, and immutable caching. Original filenames never control the storage path.
+
+Local runs use `PRODUCT_IMAGE_DIRECTORY` (default `./uploads/product-images`); preserve this directory alongside the database. Docker Compose uses the persistent `bookstore_images` volume, owned by the application's nonroot user. Cover uploads and product saves are separate requests; uploading without saving a product can leave an unused image. Retained/unused image cleanup is an operator task. Uploaded files are excluded from Git and Docker build context. The original frontend needs to adapt its multipart product submissions to image upload followed by this camelCase JSON contract and include versions when editing/deleting.
+
 ## Profile management
 
 Customers use `/api/account/profile` and `/api/account/password`; admins use `/api/admin/profile` and `/api/admin/password`. These endpoints operate only on the authenticated identity. There is no request-supplied target account ID or role. Role checks protect both the endpoints and the service layer, and API responses exclude passwords and hashes.
@@ -717,7 +820,9 @@ await apiPost('/api/auth/logout');
 
 `V9__customer_order_history.sql` adds `orders_user_status_newest_idx` on `(user_id, status, created_at DESC, order_id DESC)`. It supports customer-scoped, status-filtered history without changing existing order data or earlier migrations.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V9 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V10__admin_product_inventory.sql` adds product version counters, a case-insensitive nonblank SKU unique index, admin newest/stock indexes, and `inventory_adjustments`. Adjustment rows reference products (cascade deletion) and the acting admin (set null on account deletion), enforce nonnegative counts/nonblank reasons, generate signed deltas, and index newest changes per product. Existing products begin at version zero. Existing duplicate nonblank SKUs must be resolved before applying the unique index.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V10 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -733,6 +838,7 @@ All account queries are parameterized. Registration relies on PostgreSQL's uniqu
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | `8080` for local runs |
 | `CATALOG_DEMO_ENABLED` | `false`; enable to import the original catalog when both catalog tables are empty |
+| `PRODUCT_IMAGE_DIRECTORY` | `./uploads/product-images` for local runs; Docker Compose mounts persistent image storage at `/app/uploads/product-images` |
 | `BOOTSTRAP_ADMIN_ENABLED` | `false`; enable explicitly to provision the initial admin |
 | `BOOTSTRAP_ADMIN_USERNAME` | `admin` |
 | `BOOTSTRAP_ADMIN_EMAIL` | Required when bootstrap is enabled |
@@ -776,3 +882,5 @@ Payment method tests verify empty lists, normalized masked metadata, type filter
 Checkout/order tests verify nonmutating previews, default/explicit shipping, saved-card selection, current-price totals, format aggregation, stock deduction, owned cart clearing, snapshots surviving source deletion, idempotent retries, ownership/roles/CSRF/CORS, validation and total/status injection rejection, invalid/expired/currency-mismatched selections, database constraints, account-change persistence, simulated storage-failure rollback and retry, concurrent duplicate submissions, and competing-customer stock/deadlock protection against PostgreSQL.
 
 Order history tests verify empty history, bounded paging, timestamp/ID ordering, customer-scoped totals and normalized status filtering, invalid input, guest/admin/service restrictions, attempted owner injection, correctly grouped full item details, historical shipping/product/masked-card snapshots after source deletion, unchanged stock/cart/payment state, persistence after account changes, and consistent count/page contents when an order is committed during a request.
+
+Admin product tests verify hidden product/category access, paging/search/stock filters and summaries, normalized creation, preserved/replaced metadata, SKU conflicts, stock history and rollback, validation/role/CSRF/service/CORS protections, concurrent stock and metadata edits, checkout invalidating stale admin versions, simultaneous checkout/stock correction, deletion clearing cart/wishlist while preserving order history, PNG/JPEG uploads/public delivery, size/dimension/type rejection, and image retention after product deletion.

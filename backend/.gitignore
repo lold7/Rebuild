@@ -2,6 +2,7 @@ node_modules/
 CLAUDE.md
 .env
 target/
+uploads/
 .m2/
 .cache/
 .env.*

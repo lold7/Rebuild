@@ -1,6 +1,10 @@
 spring:
   application:
     name: low-cortisol-backend
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   flyway:
     # An address-branch database may already have V6 before the cart branch's V5 is merged.
     out-of-order: true
@@ -39,6 +43,7 @@ server:
 app:
   catalog:
     demo-enabled: ${CATALOG_DEMO_ENABLED:false}
+    image-directory: ${PRODUCT_IMAGE_DIRECTORY:./uploads/product-images}
   password-reset:
     delivery: ${PASSWORD_RESET_DELIVERY:disabled}
     link-base-url: ${PASSWORD_RESET_LINK_BASE_URL:http://localhost:8080/api/auth/reset-password}
