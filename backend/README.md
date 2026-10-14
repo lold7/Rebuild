@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, and admin category management.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, and admin order management.
 
 ## Run with Docker
 
@@ -85,6 +85,10 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/orders` | Customer only. Creates a pending, unpaid order from the current cart; requires `Idempotency-Key` and CSRF headers. |
 | GET | `/api/orders/{id}` | Customer only. Retrieves an owned order with its saved shipping, product, price, and payment metadata. |
 | GET | `/api/account/orders` | Customer only. Lists owned orders, newest first, 15 per page; accepts `page` and optional `status`. |
+| GET | `/api/admin/orders` | Admin only. Lists all customers' orders, 15 per page; accepts `page`, `status`, `q`, and `customerId`. |
+| GET | `/api/admin/orders/{id}` | Admin only. Retrieves complete order snapshots, customer contact, and current order version. |
+| PUT | `/api/admin/orders/{id}/status` | Admin only. Completes or cancels a pending order; requires `expectedVersion`, `reason`, and CSRF. Cancellation restores remaining products' stock. |
+| GET | `/api/admin/orders/{id}/status-history` | Admin only. Lists recorded status changes, 15 per page; accepts `page`. |
 | GET | `/api/admin/products`, `/api/admin/inventory` | Admin only. Lists all products, including hidden ones, with paging, search, category, visibility, and stock filters. |
 | GET | `/api/admin/products/{id}` | Admin only. Retrieves product metadata, visibility, stock, and current version. |
 | POST | `/api/admin/products` | Admin only. Creates a product with optional initial stock, images, attributes, and visibility. |
@@ -467,7 +471,7 @@ const orderResponse = await fetch(`${API}/api/orders/${order.orderId}`, { creden
 console.log(await orderResponse.json());
 ```
 
-Snapshots preserve the order's shipping fields, masked payment metadata, product details, formats, and prices after catalog edits or deletion of the original address/card/product. Orders survive logout and email/password changes. These endpoints create pending, unpaid orders and deduct stock immediately. Payment-provider processing, cancellation/refunds/restocking, and fulfillment are separate features. The original frontend's snake_case order payload and checkout response need adaptation to this camelCase API contract.
+Snapshots preserve the order's shipping fields, masked payment metadata, product details, formats, and prices after catalog edits or deletion of the original address/card/product. Orders survive logout and email/password changes. These endpoints create pending, unpaid orders and deduct stock immediately. Admin order management below implements completion and cancellation with restocking. Payment-provider charging/refunds and shipping-provider integration remain separate features. The original frontend's snake_case order payload and checkout response need adaptation to this camelCase API contract.
 
 ## Customer order history
 
@@ -612,7 +616,7 @@ Dedicated stock update:
 }
 ```
 
-PUT `/api/admin/products/{id}/stock` requires an absolute quantity, the current version, and a nonblank reason of up to 500 characters. Stock and its adjustment record commit together; storage failure rolls back quantity and version. History records initial stock, stock changes in product edits, and dedicated admin stock corrections, including the authenticated admin ID, previous/new quantities, generated delta, reason, and timestamp. GET `/api/admin/products/{id}/stock-history?page=1` returns a page of these records, newest first. Checkout deductions advance the version but are represented by orders rather than this admin-adjustment history.
+PUT `/api/admin/products/{id}/stock` requires an absolute quantity, the current version, and a nonblank reason of up to 500 characters. Stock and its adjustment record commit together; storage failure rolls back quantity and version. History records initial stock, stock changes in product edits, and dedicated admin stock corrections, including the authenticated admin ID, previous/new quantities, generated delta, reason, and timestamp. GET `/api/admin/products/{id}/stock-history?page=1` returns a page of these records, newest first. Cancellation restorations also appear in this history with their linked `orderId`; other adjustments have `orderId: null`. Checkout deductions advance the version but are represented by orders rather than this admin-adjustment history.
 
 PUT `/api/admin/products/{id}/visibility` accepts `{ "isVisible": false, "expectedVersion": 0 }`. Setting the same quantity/visibility is a no-op after checking the version. A real mutation advances the version and update timestamp. Hiding products prevents public retrieval and marks existing cart/wishlist entries unavailable; it preserves stock and order history.
 
@@ -705,6 +709,32 @@ console.log(await response.json());
 ```
 
 For PUT/DELETE, fetch a fresh CSRF token and send it with the method, credentials, and current version. The original frontend must map snake_case fields to this camelCase contract and include `expectedVersion` when editing, toggling, or deleting. No additional environment variables are required.
+
+## Admin order management
+
+All `/api/admin/orders` endpoints require an admin session. Guests receive `401`, customers receive `403`, and PUT also requires a fresh `X-CSRF-TOKEN`. Service authorization binds operations to the authenticated admin identity; request JSON cannot choose an actor, owner, payment status, stock flag, item list, or total.
+
+GET `/api/admin/orders?page=1&status=pending&q=alice&customerId=42` returns `{ items, page, pageSize, totalItems, totalPages }`. Filters are optional and combine when present. `status` accepts `pending`, `completed`, or `cancelled`, ignoring case and surrounding whitespace. `customerId` must be a positive 64-bit integer. `q` searches order ID, current customer name, and email, case-insensitively, with a maximum of 255 characters. SQL syntax and wildcard characters are treated as literal text. Omit `status` for all statuses.
+
+Each page contains at most 15 orders, newest creation date first and then highest order ID. `totalItems` counts matching orders across all customers. Count, headers, and batched item retrieval use one consistent PostgreSQL snapshot. Empty/unmatched searches return zero totals; positive pages beyond the last page return empty `items` with the matching totals. Page numbers must be positive 32-bit integers.
+
+Each entry and GET `/api/admin/orders/{id}` return `{ order, customer, version, stockReleased, updatedAt }`. The nested `order` is the existing customer `OrderResponse`, including all item lines and immutable product/format/price, shipping, and optional masked payment snapshots. `customer` contains the account's current `userId`, `username`, `email`, and nullable `phone`. Passwords, hashes, idempotency keys, and request fingerprints are excluded. Existing customer APIs keep their response shapes and ownership restrictions.
+
+PUT `/api/admin/orders/123/status` accepts:
+
+```json
+{ "status": "cancelled", "expectedVersion": 0, "reason": "Customer requested cancellation" }
+```
+
+`expectedVersion` is required and nonnegative; `reason` must be nonblank and at most 500 characters. A pending order may become `completed` or `cancelled`. Completed and cancelled orders are final: reopening or changing between them returns `409` with `INVALID_ORDER_STATUS_TRANSITION`. A real change advances the order version and update timestamp, records the acting admin and trimmed reason, and returns the full updated admin order with `200`. A matching-version request for the current status is a no-op. A stale version returns `409` with `STALE_ORDER_VERSION`, including stale retries for a status already applied; reload the order before retrying.
+
+Completion records fulfillment without changing stock or payment status. Cancellation aggregates quantities across all formats of each live product, restores that stock once, advances affected product versions, and records inventory adjustments linked by `orderId`. The order header is locked to serialize competing admin updates, and products are locked in ascending ID order, matching checkout. Order status/version, stock restoration, inventory records, and status history commit together. Database failures roll back everything. Restoring beyond the maximum 32-bit stock count returns `409` with `STOCK_RESTORE_OVERFLOW` and leaves all products and the order unchanged. Stale admin inventory forms cannot overwrite restored stock.
+
+Deleted source products are skipped using the live nullable product references; snapshots remain intact and products are never recreated from them. `stockReleased: true` means cancellation restoration was processed, including when all source products have been deleted. Cancellation leaves the customer's cart cleared and preserves historical items, totals, and shipping/payment snapshots. Payment status remains unchanged for both completion and cancellation; these actions do not charge or refund a payment.
+
+GET `/api/admin/orders/{id}/status-history?page=1` returns `{ items, page, pageSize, totalItems, totalPages }`, newest changes first. Each entry includes `changeId`, `orderId`, nullable `adminUserId`, `previousStatus`, `newStatus`, `orderVersion`, `reason`, and `createdAt`. Deleting an admin clears the actor reference while preserving the audit. No-op/stale/failed updates do not add history.
+
+Missing orders return `404` with `ADMIN_ORDER_NOT_FOUND`. Invalid IDs, pages, filters, or status values return `400` with `INVALID_ADMIN_ORDER_REQUEST`; invalid request fields use `VALIDATION_ERROR` or `INVALID_JSON`. No new configuration is required. The original frontend must consume `response.items`, map the nested camelCase order/customer fields, and include the displayed `version` as `expectedVersion` plus a reason when changing status.
 
 ## Profile management
 
@@ -889,7 +919,9 @@ await apiPost('/api/auth/logout');
 
 `V11__admin_category_management.sql` adds category version counters and update timestamps. Existing categories start at version zero, retain their IDs/slugs/names/images/visibility/creation dates, and receive an initial update timestamp at migration. The existing unique slug constraint and restricted product foreign key remain in effect.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V11 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V12__admin_order_management.sql` adds order versions/update timestamps, a stock-restoration marker constrained to cancelled orders, global/status newest indexes, and `order_status_changes` with actor references, reasons, and unique per-order change versions. Inventory adjustments gain an optional order reference that clears on order deletion. Existing order statuses, payment states, totals, item/shipping/payment snapshots, and stock are preserved. Existing cancelled orders are not automatically restocked; their new marker remains false. New pending-order cancellations process restoration atomically and set it true.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V12 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -953,3 +985,5 @@ Order history tests verify empty history, bounded paging, timestamp/ID ordering,
 Admin product tests verify hidden product/category access, paging/search/stock filters and summaries, normalized creation, preserved/replaced metadata, SKU conflicts, stock history and rollback, validation/role/CSRF/service/CORS protections, concurrent stock and metadata edits, checkout invalidating stale admin versions, simultaneous checkout/stock correction, deletion clearing cart/wishlist while preserving order history, PNG/JPEG uploads/public delivery, size/dimension/type rejection, and image retention after product deletion.
 
 Admin category tests verify the existing list contract, counts/search/visibility filters, normalized creation and public slug lookup, Unicode/numeric name handling, stable slugs on rename, image clearing, slug conflicts and rollback, live product metadata changes with preserved order snapshots, cart/wishlist/checkout visibility behavior, no-op visibility and safe toggle retries, nonempty deletion protection, validation/role/CSRF/service restrictions, concurrent edits/slug creation, deletion racing product assignment, and hiding racing checkout against PostgreSQL.
+
+Admin order tests verify cross-customer paging/search/status filters, complete historical details and safe contact fields, completion/cancellation audit records, payment-state preservation, terminal/no-op/stale transitions, format-aggregated stock restoration exactly once, inventory version protection, deleted-product handling, stock overflow and storage-failure rollback/retry, legacy cancelled orders, validation/role/CSRF/service restrictions, audit reference cleanup, consistent count/page snapshots, competing updates/cancellations, cancellation racing checkout, and cancellation racing product deletion against PostgreSQL.
