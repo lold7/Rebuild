@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, and admin product/inventory management.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, and admin category management.
 
 ## Run with Docker
 
@@ -94,7 +94,13 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | DELETE | `/api/admin/products/{id}?expectedVersion=0` | Admin only. Deletes the matching version, clears cart/wishlist references, and preserves order snapshots. |
 | GET | `/api/admin/products/{id}/stock-history` | Admin only. Lists recorded admin stock changes, 15 per page. |
 | GET | `/api/admin/inventory/summary` | Admin only. Returns product/unit totals, low/out-of-stock counts, and visible/hidden counts. |
-| GET | `/api/admin/categories` | Admin only. Lists existing categories, including hidden ones, for product assignment. |
+| GET | `/api/admin/categories` | Admin only. Lists categories, including hidden ones, with counts and versions; accepts `q` and `visibility`. |
+| GET | `/api/admin/categories/{id}` | Admin only. Retrieves one category with its product count, visibility, version, and timestamps. |
+| POST | `/api/admin/categories` | Admin only. Creates a category with a unique slug, optional image reference, and visibility. |
+| PUT | `/api/admin/categories/{id}` | Admin only. Updates category details; requires `expectedVersion`. |
+| PUT | `/api/admin/categories/{id}/visibility` | Admin only. Sets visibility; requires `expectedVersion`. |
+| PUT | `/api/admin/categories/{id}/toggle` | Admin only. Flips visibility once for the supplied `expectedVersion`. |
+| DELETE | `/api/admin/categories/{id}?expectedVersion=0` | Admin only. Deletes an empty category at the matching version; rejects categories containing products. |
 | POST | `/api/admin/product-images` | Admin only. Accepts a multipart `file` containing a PNG or JPEG, up to 5 MiB. |
 | GET | `/api/product-images/{name}` | Public. Serves an uploaded cover image using its server-generated name. |
 
@@ -567,7 +573,7 @@ Filters may be combined:
 | `stock` | `all` (default), `out` (zero stock), or `low` (1 through the low-stock threshold). |
 | `lowStockThreshold` | Integer from 0 to 100000, default `5`; used for low-stock filtering and inventory summary. |
 
-GET `/api/admin/categories` returns category IDs/names/slugs/images, visibility, and product counts, including hidden categories. This provides the assignment options for products; category creation/editing is a separate feature.
+GET `/api/admin/categories` returns category IDs/names/slugs/images, visibility, product counts, versions, and timestamps, including hidden categories. These categories provide the assignment options for products; creation/editing is documented below.
 
 POST `/api/admin/products` example:
 
@@ -640,6 +646,65 @@ const product = await apiPost('/api/admin/products', {
 Invalid images return `400` with `INVALID_PRODUCT_IMAGE`; oversized uploads return `413` with `PRODUCT_IMAGE_TOO_LARGE`. Missing image names return `404`; storage failures return `503` with `IMAGE_STORAGE_UNAVAILABLE`. Uploaded images are public, served with their detected content type, nosniff, and immutable caching. Original filenames never control the storage path.
 
 Local runs use `PRODUCT_IMAGE_DIRECTORY` (default `./uploads/product-images`); preserve this directory alongside the database. Docker Compose uses the persistent `bookstore_images` volume, owned by the application's nonroot user. Cover uploads and product saves are separate requests; uploading without saving a product can leave an unused image. Retained/unused image cleanup is an operator task. Uploaded files are excluded from Git and Docker build context. The original frontend needs to adapt its multipart product submissions to image upload followed by this camelCase JSON contract and include versions when editing/deleting.
+
+## Admin category management
+
+Category management uses the existing admin login and role checks. Every POST, PUT, and DELETE requires the session cookie and a fresh CSRF token. Service authorization also binds the supplied acting admin to the authenticated identity. Guests receive `401`; customer accounts receive `403`.
+
+GET `/api/admin/categories` preserves the existing unpaged array response and sorts by category ID ascending. It includes hidden categories and all products in each count, including hidden/zero-stock products. Optional `q` (up to 255 characters) searches names/slugs case insensitively, with literal `%`, `_`, and `!` handling. Optional `visibility` is `all` (default), `visible`, or `hidden`, ignoring case and surrounding whitespace. GET `/api/admin/categories/{id}` returns one category by positive numeric ID.
+
+POST `/api/admin/categories` example:
+
+```json
+{
+  "categoryName": "Historical Fiction",
+  "slug": "historical-fiction",
+  "categoryImage": "history.png",
+  "isVisible": true
+}
+```
+
+Only `categoryName` is required. Names are trimmed and limited to 100 characters. A provided slug is trimmed, lowercased, and must contain ASCII letters/digits separated by single hyphens, include at least one letter, and be at most 120 characters. If omitted/null on creation, the slug is generated from the name by removing accent marks and replacing punctuation/whitespace with hyphens. Generated slugs containing only digits/hyphens receive a `category-` prefix; names without ASCII letters/digits receive a `category-` UUID slug. Slugs are unique in PostgreSQL. Category names can repeat when different explicit slugs are supplied.
+
+`categoryImage` is an optional filename reference, up to 500 characters, using letters, digits, dots, underscores, and hyphens and starting with a letter/digit. It can reference an existing frontend asset or an image already uploaded through `/api/admin/product-images`. Omitted/null/blank images default to null. Visibility defaults to true. Unknown JSON fields, including IDs, product counts, version counters, and role/account fields, are rejected.
+
+Creation returns `201` with `Location: /api/admin/categories/{id}` and a category response:
+
+```json
+{
+  "categoryId": 6,
+  "categoryName": "Historical Fiction",
+  "slug": "historical-fiction",
+  "categoryImage": "history.png",
+  "isVisible": true,
+  "productCount": 0,
+  "version": 0,
+  "createdAt": "2026-10-15T00:00:00Z",
+  "updatedAt": "2026-10-15T00:00:00Z"
+}
+```
+
+PUT `/api/admin/categories/{id}` requires `categoryName` and `expectedVersion`. Omitted/null slug, image, and visibility preserve their current values. Send an empty/blank image string to clear it. Renaming preserves the category's URL unless an explicit replacement slug is supplied. Changing a slug makes the new public URL available and the previous slug unavailable. Every successful metadata edit advances the category's version and update timestamp.
+
+PUT `/api/admin/categories/{id}/visibility` accepts `{ "isVisible": false, "expectedVersion": 0 }`. Setting the current visibility is a no-op after the version check. PUT `/api/admin/categories/{id}/toggle` accepts `{ "expectedVersion": 0 }` and flips visibility, advancing the version. Repeating the same toggle request returns a stale-version conflict instead of flipping it again.
+
+Hidden categories and their products disappear from public listings/search/retrieval. Existing cart/wishlist items remain saved with `available: false`; checkout rejects them. Unhiding a category restores access to products whose individual visibility is still true. Category changes do not modify product visibility, stock, or saved order snapshots. Checkout holds category locks while creating an order, so hiding and checkout serialize consistently.
+
+DELETE `/api/admin/categories/{id}?expectedVersion={version}` returns `204` for an empty category. It locks the category and rechecks product references before deletion. Nonempty categories return `409` with `CATEGORY_NOT_EMPTY`; move or remove their products first. PostgreSQL's restricted product/category foreign key and assignment locks preserve referential integrity during concurrent product creation/reassignment. Deletion does not cascade to products or delete referenced image files.
+
+All mutations require the current nonnegative `expectedVersion`. A stale edit, visibility request, toggle, or deletion returns `409` with `STALE_CATEGORY_VERSION`; reload before retrying. Duplicate generated/explicit slugs return `409` with `CATEGORY_SLUG_IN_USE`, and failed updates roll back all changes. Missing categories return `404` with `ADMIN_CATEGORY_NOT_FOUND`. Invalid IDs, filters, image references, slugs, or missing versions return `400` with `INVALID_ADMIN_CATEGORY_REQUEST`; request-field validation uses `VALIDATION_ERROR`.
+
+Example using the `apiPost` helper below after admin login:
+
+```javascript
+const category = await apiPost('/api/admin/categories', { categoryName: 'Historical Fiction' });
+const response = await fetch(`${API}/api/admin/categories/${category.categoryId}`, {
+  credentials: 'include'
+});
+console.log(await response.json());
+```
+
+For PUT/DELETE, fetch a fresh CSRF token and send it with the method, credentials, and current version. The original frontend must map snake_case fields to this camelCase contract and include `expectedVersion` when editing, toggling, or deleting. No additional environment variables are required.
 
 ## Profile management
 
@@ -822,7 +887,9 @@ await apiPost('/api/auth/logout');
 
 `V10__admin_product_inventory.sql` adds product version counters, a case-insensitive nonblank SKU unique index, admin newest/stock indexes, and `inventory_adjustments`. Adjustment rows reference products (cascade deletion) and the acting admin (set null on account deletion), enforce nonnegative counts/nonblank reasons, generate signed deltas, and index newest changes per product. Existing products begin at version zero. Existing duplicate nonblank SKUs must be resolved before applying the unique index.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V10 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V11__admin_category_management.sql` adds category version counters and update timestamps. Existing categories start at version zero, retain their IDs/slugs/names/images/visibility/creation dates, and receive an initial update timestamp at migration. The existing unique slug constraint and restricted product foreign key remain in effect.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V11 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -884,3 +951,5 @@ Checkout/order tests verify nonmutating previews, default/explicit shipping, sav
 Order history tests verify empty history, bounded paging, timestamp/ID ordering, customer-scoped totals and normalized status filtering, invalid input, guest/admin/service restrictions, attempted owner injection, correctly grouped full item details, historical shipping/product/masked-card snapshots after source deletion, unchanged stock/cart/payment state, persistence after account changes, and consistent count/page contents when an order is committed during a request.
 
 Admin product tests verify hidden product/category access, paging/search/stock filters and summaries, normalized creation, preserved/replaced metadata, SKU conflicts, stock history and rollback, validation/role/CSRF/service/CORS protections, concurrent stock and metadata edits, checkout invalidating stale admin versions, simultaneous checkout/stock correction, deletion clearing cart/wishlist while preserving order history, PNG/JPEG uploads/public delivery, size/dimension/type rejection, and image retention after product deletion.
+
+Admin category tests verify the existing list contract, counts/search/visibility filters, normalized creation and public slug lookup, Unicode/numeric name handling, stable slugs on rename, image clearing, slug conflicts and rollback, live product metadata changes with preserved order snapshots, cart/wishlist/checkout visibility behavior, no-op visibility and safe toggle retries, nonempty deletion protection, validation/role/CSRF/service restrictions, concurrent edits/slug creation, deletion racing product assignment, and hiding racing checkout against PostgreSQL.

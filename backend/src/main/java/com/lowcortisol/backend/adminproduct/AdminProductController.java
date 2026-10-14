@@ -2,7 +2,6 @@ package com.lowcortisol.backend.adminproduct;
 
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,9 +28,6 @@ public class AdminProductController {
 
     @GetMapping("/api/admin/products/{id}")
     public AdminProductResponse get(@PathVariable String id, Authentication auth) { return products.get(auth.getName(), AdminProductService.id(id)); }
-
-    @GetMapping("/api/admin/categories")
-    public List<AdminCategoryResponse> categories(Authentication auth) { return products.categories(auth.getName()); }
 
     @GetMapping("/api/admin/inventory/summary")
     public InventorySummary summary(@RequestParam(required = false) String lowStockThreshold, Authentication auth) {
