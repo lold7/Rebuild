@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, and password recovery as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, and customer wishlists as JSON APIs.
 
 ## Run with Docker
 
@@ -61,6 +61,11 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | GET | `/api/categories` | Public. Lists visible categories. |
 | GET | `/api/categories/{idOrSlug}` | Public. Retrieves a visible category by numeric ID or slug. |
 | GET | `/api/categories/{idOrSlug}/products` | Public. Lists products in a visible category; accepts `page` and `q`. |
+| GET | `/api/account/wishlist` | Customer only. Lists the customer's saved products, newest first. |
+| GET | `/api/account/wishlist/{productId}` | Customer only. Returns `{ "productId": 1, "wishlisted": true }` for the customer's own saved state. |
+| POST | `/api/account/wishlist/add` | Customer only. Saves a visible product; repeated adds leave it saved without duplicates. |
+| POST | `/api/account/wishlist/remove` | Customer only. Removes a saved product; repeated removals leave it removed. |
+| POST | `/api/account/wishlist/toggle` | Customer only. Saves an absent product or removes an existing saved product. |
 
 Registration body:
 
@@ -144,6 +149,47 @@ Categories accept numeric IDs or stored slugs. The original five demo categories
 The startup import runs only if both catalog tables are empty. It uses a transaction and PostgreSQL advisory lock so multiple instances cannot import simultaneously. It preserves an existing or partially populated catalog and does not import customer accounts, credentials, or orders. The identity sequences advance past the imported IDs, allowing later products/categories to use generated IDs.
 
 Demo data is adapted from [the original catalog SQL](https://github.com/lold7/front-end-low-cortisol/blob/main/sql/init.sql). Image fields preserve the original filenames; image binaries are not included in this backend. Serve the corresponding assets through the frontend or an image host.
+
+## Wishlist management
+
+Wishlist endpoints require a customer login and use the authenticated identity to resolve ownership. Guests receive `401` and admins receive `403` when supplying a valid CSRF token for POST requests. The request cannot specify another account's ID, email, or role; unknown JSON fields are rejected. Service-level authorization also binds every operation to the caller's email and customer role.
+
+All three mutation endpoints accept a positive product ID:
+
+```json
+{ "productId": 1 }
+```
+
+Successful mutations return `200` with:
+
+```json
+{
+  "success": true,
+  "action": "added",
+  "productId": 1,
+  "wishlisted": true
+}
+```
+
+Actions are `added`, `removed`, or `unchanged`. Adding an already saved product returns `unchanged` and `wishlisted: true`. Removing an absent product returns `unchanged` and `wishlisted: false`. Toggle alternates the saved state; use the explicit add/remove endpoints when retrying requests should preserve the intended state.
+
+GET `/api/account/wishlist` returns `{ "items": [], "totalItems": 0 }` for an empty wishlist. Each saved item contains `wishlistId`, `product` (the same structured product fields used by catalog retrieval), `available`, and `savedAt`. Entries are ordered by save time descending, then wishlist ID descending. GET `/api/account/wishlist/{productId}` returns the caller's own saved state, including `false` for an absent/deleted product.
+
+New additions require both the product and category to be visible; missing or unavailable products return `404` with code `CATALOG_NOT_FOUND`. Stock is independent: visible zero-stock books can be saved. Existing saved entries remain listed if a product or its category is later hidden, with `available: false`; customers can still remove them. `available` describes catalog visibility, while `product.inStock` describes inventory. Product details in saved entries reflect current database values.
+
+Product IDs must fit a positive 64-bit integer. Missing/nonpositive IDs, fractional numbers, malformed JSON, and account/role injection return `400`. Invalid status-path IDs return `INVALID_WISHLIST_REQUEST`. All POST requests require the session cookie and CSRF token from GET `/api/auth/csrf`.
+
+For a logged-in customer, use the `apiPost` helper below:
+
+```javascript
+await apiPost('/api/account/wishlist/add', { productId: 1 });
+const response = await fetch(`${API}/api/account/wishlist`, { credentials: 'include' });
+console.log(await response.json());
+await apiPost('/api/account/wishlist/toggle', { productId: 1 });
+await apiPost('/api/account/wishlist/remove', { productId: 1 });
+```
+
+Wishlist records persist across logout, password changes, and email changes because they reference the account's stable user ID. Deleting a user or product cascades to its wishlist entries. PostgreSQL enforces one entry per user/product pair, and each customer's writes lock their account row so concurrent toggles apply in order. No additional environment setting is needed; Flyway applies the new migration on startup.
 
 ## Admin authentication and authorization
 
@@ -357,6 +403,8 @@ await apiPost('/api/auth/logout');
 
 `V3__product_catalog.sql` adds `categories` and `products`. Category slugs are unique. Products reference categories with restricted deletion, use `NUMERIC(10,2)` prices, nonnegative stock, and `JSONB` images/attributes. Indexes support category lookup and newest-visible-product listings. The optional startup fixture is stored separately in `db/demo/catalog.sql`.
 
+`V4__wishlists.sql` adds `wishlist`, with foreign keys to users and products, cascading deletion, a unique user/product constraint, and indexes for listing by owner/save time and cleaning up deleted products.
+
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
 ## Configuration
@@ -400,3 +448,5 @@ Recovery tests verify hashed tokens, 30-minute expiry, replacement, single use, 
 Profile tests verify customer/admin reads and updates, role and ownership restrictions, validation, CSRF protection, password verification, case-insensitive email changes, duplicate-email rollback, preserved login state for name/phone edits, and revocation of sessions/tokens after email or password changes.
 
 Catalog tests load the original 60-book fixture into an isolated PostgreSQL database and verify stable paging, latest products, structured details, title/description/author search, combined category filters, literal wildcard handling, hidden product/category rules, stock availability, invalid inputs, public access across roles, and demo-import preservation.
+
+Wishlist tests verify empty/saved states, structured product details, idempotent additions/removals, toggling, guest/admin rejection, account isolation, validation, CSRF protection, hidden/zero-stock rules, persistence across logout and email changes, cascading cleanup, service-level authorization, and concurrent add/toggle behavior against PostgreSQL.
