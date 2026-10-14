@@ -1,6 +1,10 @@
 # Bookstore backend
 
+
 Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, and address books as JSON APIs.
+
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, and persistent shopping carts as JSON APIs.
+
 
 ## Run with Docker
 
@@ -71,6 +75,13 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/account/addresses/add` | Customer only. Adds an address; the first becomes the default automatically. |
 | POST | `/api/account/addresses/delete/{id}` | Customer only. Deletes an owned address and promotes a remaining default when needed. |
 | POST | `/api/account/addresses/default/{id}` | Customer only. Selects an owned address as the default. |
+
+| GET | `/api/cart` | Customer only. Returns cart lines, quantities, current prices, totals, and availability flags. |
+| POST | `/api/cart/add` | Customer only. Adds a product/format or increases an existing matching line. |
+| POST | `/api/cart/update` | Customer only. Replaces an owned cart line's quantity. |
+| POST | `/api/cart/remove` | Customer only. Removes an owned cart line. |
+| POST | `/api/cart/clear` | Customer only. Clears the customer's cart. |
+
 
 Registration body:
 
@@ -235,9 +246,61 @@ POST `/api/account/addresses/default/{id}` selects a default, and POST `/api/acc
 
 Missing and foreign address IDs both return `404` with `ADDRESS_NOT_FOUND`. Ownership is verified before altering a default, so a failed request cannot clear the caller's current default or modify another account. Malformed/nonpositive/out-of-range IDs return `400` with `INVALID_ADDRESS_REQUEST`; field validation errors return `VALIDATION_ERROR`.
 
+## Cart management
+
+Cart endpoints require a customer login. Ownership comes from the authenticated identity, and both HTTP and service-level checks reject guests, admins, and attempts to operate on another customer's cart. All POST requests require the session cookie and CSRF token. Cart entries persist across logout, password changes, and email changes because they reference the stable user ID.
+
+POST `/api/cart/add` accepts:
+
+```json
+{
+  "productId": 1,
+  "quantity": 2,
+  "selectedFormat": "Paperback"
+}
+```
+
+`productId` is required. `quantity` defaults to 1 when omitted or null. `selectedFormat` is optional; when absent/blank, the first configured format is selected. Requests match format names case-insensitively and store the canonical product format. Scalar and array format definitions are supported. Products without formats use an empty attributes object. The same book and format merge into one line; different formats remain separate.
+
+Each line must contain 1–10 units, including the quantity after merging repeated additions. Stock is checked across every format of the same product in the customer's cart. Additions require a visible product and category and positive stock. Quantity updates repeat the visibility, format, and aggregate stock checks.
+
+POST `/api/cart/update` replaces a line's quantity:
+
+```json
+{ "cartItemId": 1, "quantity": 3 }
+```
+
+POST `/api/cart/remove` removes that customer's line:
+
+```json
+{ "cartItemId": 1 }
+```
+
+Missing and foreign cart-item IDs both return `404` with `CART_ITEM_NOT_FOUND`, without exposing ownership. Previously hidden, out-of-stock, or discontinued-format items can still be removed or cleared. POST `/api/cart/clear` requires no body and is safe to repeat on an empty cart.
+
+All successful cart mutations return `200` with the updated cart, in the same shape as GET `/api/cart`:
+
+```json
+{
+  "items": [],
+  "totalItems": 0,
+  "totalQuantity": 0,
+  "totalPrice": 0.00,
+  "valid": false
+}
+```
+
+Each item contains `cartItemId`, `product` (current catalog fields), `quantity`, `selectedAttributes`, `lineTotal`, `available`, `sufficientStock`, and `validFormat`. Items are sorted newest first. `totalItems` counts lines; `totalQuantity` counts units across all lines. Line totals and the total price use current PostgreSQL decimal prices and Java `BigDecimal`, including items that have since become unavailable. Clients cannot submit prices or totals; unknown fields on add/update/remove requests are rejected.
+
+`available` reflects product/category visibility. `sufficientStock` checks the combined quantity across formats. `validFormat` checks whether the saved format remains configured. `valid` is true only for a nonempty cart where every line satisfies all three checks. Reading a cart reports stale entries without deleting them. Cart operations do not reserve or deduct stock; these flags describe current cart validity, not a checkout guarantee.
+
+Invalid quantities, malformed IDs, fractional numeric IDs/quantities, and unsupported formats return `400`. A merged line exceeding ten units returns `QUANTITY_LIMIT`; invalid formats return `INVALID_FORMAT`. Missing/hidden products return `404` with `CATALOG_NOT_FOUND`. Stock conflicts return `409` with `OUT_OF_STOCK` or `INSUFFICIENT_STOCK`. Failed mutations leave the cart unchanged.
+>>>>>>> feature/cart-management
+
 Using the `apiPost` helper below for a logged-in customer:
 
 ```javascript
+
 const address = await apiPost('/api/account/addresses/add', {
   label: 'Home', fullName: 'Alice Example', addressLine: '123 Main Street'
 });
@@ -248,6 +311,18 @@ await apiPost(`/api/account/addresses/delete/${address.addressId}`);
 ```
 
 Address mutations lock the customer row and run transactionally. A PostgreSQL partial unique index permits at most one default per customer; the service maintains a default whenever addresses remain. Concurrent additions, deletions, and selections therefore preserve the default rules. Saved addresses survive logout, email changes, and password changes because they reference the stable user ID. Deleting an account cascades to its addresses. No additional environment setting is required.
+
+const cart = await apiPost('/api/cart/add', {
+  productId: 1, quantity: 2, selectedFormat: 'Paperback'
+});
+const cartItemId = cart.items[0].cartItemId;
+await apiPost('/api/cart/update', { cartItemId, quantity: 3 });
+await apiPost('/api/cart/remove', { cartItemId });
+await apiPost('/api/cart/clear');
+```
+
+PostgreSQL prevents duplicate customer/book/format lines, including products without a format. Account-row locks serialize each customer's writes, and shared product/category locks keep stock and visibility stable during a mutation. Deleting a user or product cascades to its cart entries. No additional environment setting is required; Flyway applies the new schema automatically.
+>>>>>>> feature/cart-management
 
 ## Admin authentication and authorization
 
@@ -465,6 +540,9 @@ await apiPost('/api/auth/logout');
 
 `V6__address_book.sql` adds `addresses`, with a cascading user foreign key, field limits/defaults, an index for newest addresses per owner, and a partial unique index for one default per customer. Version 6 leaves version 5 available for the separate cart migration. Flyway applies this migration automatically on startup.
 
+`V5__shopping_cart.sql` adds `cart_items`, with user/product foreign keys, cascading deletion, a 1–10 quantity constraint, JSONB selected attributes, a unique customer/product/normalized-format index, and a product index.
+>>>>>>> feature/cart-management
+
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
 ## Configuration
@@ -511,4 +589,8 @@ Catalog tests load the original 60-book fixture into an isolated PostgreSQL data
 
 Wishlist tests verify empty/saved states, structured product details, idempotent additions/removals, toggling, guest/admin rejection, account isolation, validation, CSRF protection, hidden/zero-stock rules, persistence across logout and email changes, cascading cleanup, service-level authorization, and concurrent add/toggle behavior against PostgreSQL.
 
+
 Address tests verify empty books, field defaults, default-first ordering, automatic first defaults, explicit/default selection, deletion promotion, ownership and role restrictions, invalid input/CSRF protection, persistence across account changes, cascading deletion, service-level authorization, and concurrent additions/default changes/deletions against PostgreSQL.
+
+Cart tests verify empty totals, matching-format merging, separate formats, default/scalar/absent formats, updates/removals/clearing, exact current-price totals, limits, aggregate stock checks, stale availability, ownership and role protection, input/CSRF validation, persistence, cascading cleanup, and concurrent requests that cannot create duplicate lines or exceed a customer's stock allowance.
+

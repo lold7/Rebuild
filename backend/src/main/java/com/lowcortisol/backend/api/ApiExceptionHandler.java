@@ -8,6 +8,8 @@ import com.lowcortisol.backend.catalog.InvalidCatalogRequestException;
 import com.lowcortisol.backend.wishlist.InvalidWishlistRequestException;
 import com.lowcortisol.backend.address.AddressNotFoundException;
 import com.lowcortisol.backend.address.InvalidAddressRequestException;
+import com.lowcortisol.backend.cart.CartException;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -29,6 +31,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidAddressRequestException.class)
     ResponseEntity<ApiError> invalidAddress(InvalidAddressRequestException exception) {
         return ResponseEntity.badRequest().body(new ApiError("INVALID_ADDRESS_REQUEST", exception.getMessage()));
+    @ExceptionHandler(CartException.class)
+    ResponseEntity<ApiError> cartError(CartException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+
     }
 
     @ExceptionHandler(InvalidWishlistRequestException.class)
@@ -87,3 +93,4 @@ public class ApiExceptionHandler {
             .body(new ApiError("INVALID_CREDENTIALS", "Invalid email or password"));
     }
 }
+
