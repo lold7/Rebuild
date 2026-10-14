@@ -1,5 +1,5 @@
 import { MatIconModule } from '@angular/material/icon';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../core/services/admin.service';
@@ -7,27 +7,38 @@ import { Category } from '../../core/models/models';
 import { AdminSidebarComponent } from '../../shared/components/admin-sidebar/admin-sidebar.component';
 import { AdminTopbarComponent } from '../../shared/components/admin-topbar/admin-topbar.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 
 @Component({
   selector: 'app-admin-categories',
   standalone: true,
   imports: [
-    MatIconModule,CommonModule, FormsModule, AdminSidebarComponent, AdminTopbarComponent, MatSnackBarModule],
+    MatIconModule,
+    CommonModule,
+    FormsModule,
+    AdminSidebarComponent,
+    AdminTopbarComponent,
+    MatSnackBarModule,
+    MatDialogModule
+  ],
   templateUrl: './admin-categories.component.html',
   styleUrls: ['./admin-categories.component.scss']
 })
 export class AdminCategoriesComponent implements OnInit {
   private adminService = inject(AdminService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
+
+  @ViewChild('addCategoryDialog') addCategoryDialog!: TemplateRef<any>;
+  @ViewChild('editCategoryDialog') editCategoryDialog!: TemplateRef<any>;
 
   categories: Category[] = [];
   isLoading = true;
 
-  // Add / Edit Modal state
-  showAddModal = false;
-  showEditModal = false;
+  // Add / Edit Dialog state
   newCategory = { category_name: '', category_image: '' };
   editingCategory: Category | null = null;
+  private dialogRef: MatDialogRef<any> | null = null;
 
   ngOnInit(): void {
     this.loadCategories();
@@ -48,11 +59,17 @@ export class AdminCategoriesComponent implements OnInit {
 
   openAddModal(): void {
     this.newCategory = { category_name: '', category_image: '' };
-    this.showAddModal = true;
+    this.dialogRef = this.dialog.open(this.addCategoryDialog, {
+      width: '500px',
+      autoFocus: false
+    });
   }
 
   closeAddModal(): void {
-    this.showAddModal = false;
+    if (this.dialogRef) {
+      this.dialogRef.close();
+      this.dialogRef = null;
+    }
   }
 
   submitAddCategory(): void {
@@ -72,11 +89,17 @@ export class AdminCategoriesComponent implements OnInit {
 
   openEditModal(cat: Category): void {
     this.editingCategory = { ...cat };
-    this.showEditModal = true;
+    this.dialogRef = this.dialog.open(this.editCategoryDialog, {
+      width: '500px',
+      autoFocus: false
+    });
   }
 
   closeEditModal(): void {
-    this.showEditModal = false;
+    if (this.dialogRef) {
+      this.dialogRef.close();
+      this.dialogRef = null;
+    }
     this.editingCategory = null;
   }
 
