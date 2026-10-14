@@ -46,9 +46,6 @@ public class AdminProductService {
     public AdminProductResponse get(String email, long id) { return product(id, false); }
 
     @Transactional(readOnly = true)
-    public List<AdminCategoryResponse> categories(String email) { return products.categories(); }
-
-    @Transactional(readOnly = true)
     public InventorySummary summary(String email, String threshold) { return products.summary(threshold(threshold)); }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

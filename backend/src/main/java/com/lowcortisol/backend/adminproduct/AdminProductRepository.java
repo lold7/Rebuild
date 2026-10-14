@@ -42,14 +42,6 @@ public class AdminProductRepository {
             .stream().findFirst().orElseThrow(() -> new UsernameNotFoundException("Admin does not exist"));
     }
 
-    List<AdminCategoryResponse> categories() {
-        return jdbc.query("""
-            SELECT c.*, (SELECT count(*) FROM products p WHERE p.category_id = c.category_id) AS product_count
-            FROM categories c ORDER BY c.category_id
-            """, (rs, row) -> new AdminCategoryResponse(rs.getLong("category_id"), rs.getString("category_name"),
-            rs.getString("slug"), rs.getString("category_image"), rs.getBoolean("is_visible"), rs.getLong("product_count")));
-    }
-
     AdminProductPage page(int page, int size, String query, Long category, String visibility, String stock, int threshold) {
         StringBuilder filter = new StringBuilder(FROM);
         List<Object> args = new ArrayList<>();
