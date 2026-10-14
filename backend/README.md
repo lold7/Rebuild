@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, and customer wishlists as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, and address books as JSON APIs.
 
 ## Run with Docker
 
@@ -66,6 +66,11 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/account/wishlist/add` | Customer only. Saves a visible product; repeated adds leave it saved without duplicates. |
 | POST | `/api/account/wishlist/remove` | Customer only. Removes a saved product; repeated removals leave it removed. |
 | POST | `/api/account/wishlist/toggle` | Customer only. Saves an absent product or removes an existing saved product. |
+| GET | `/api/account/addresses` | Customer only. Lists addresses with the default first. |
+| GET | `/api/account/addresses/{id}` | Customer only. Retrieves one owned address. |
+| POST | `/api/account/addresses/add` | Customer only. Adds an address; the first becomes the default automatically. |
+| POST | `/api/account/addresses/delete/{id}` | Customer only. Deletes an owned address and promotes a remaining default when needed. |
+| POST | `/api/account/addresses/default/{id}` | Customer only. Selects an owned address as the default. |
 
 Registration body:
 
@@ -190,6 +195,59 @@ await apiPost('/api/account/wishlist/remove', { productId: 1 });
 ```
 
 Wishlist records persist across logout, password changes, and email changes because they reference the account's stable user ID. Deleting a user or product cascades to its wishlist entries. PostgreSQL enforces one entry per user/product pair, and each customer's writes lock their account row so concurrent toggles apply in order. No additional environment setting is needed; Flyway applies the new migration on startup.
+
+## Address management
+
+Customers can maintain multiple saved shipping addresses. Every operation resolves the owner from the authenticated identity; callers cannot supply another account's ID or role. HTTP and service-level checks restrict address-book access to customers. Guests receive `401`; admins receive `403`. All POST requests require the session cookie and CSRF token from GET `/api/auth/csrf`.
+
+POST `/api/account/addresses/add` accepts:
+
+```json
+{
+  "label": "Home",
+  "fullName": "Alice Example",
+  "phone": "0812345678",
+  "addressLine": "123 Main Street",
+  "city": "Bangkok",
+  "province": "Bangkok",
+  "postalCode": "10110",
+  "isDefault": false
+}
+```
+
+`fullName` and `addressLine` are required and limited to 200 and 500 characters. Optional limits are 50 for label, 20 for phone, 100 each for city/province, and 10 for postal code. Text is trimmed. Missing or blank label/city/province/postal code use the original project's defaults: `Home`, `Bangkok`, `Bangkok`, and `10110`. An absent or blank phone is stored as null. `isDefault` defaults to false. Unknown fields, including `userId`, `addressId`, and `role`, return `400`.
+
+Creation returns `201` with the address fields, `addressId`, `isDefault`, and `createdAt`, plus a `Location` header for retrieving that owned address. The first address automatically becomes default even if `isDefault` is false. Adding an address with `isDefault: true` switches the default from the previous address in the same transaction.
+
+GET `/api/account/addresses` returns:
+
+```json
+{
+  "addresses": [],
+  "totalAddresses": 0,
+  "defaultAddressId": null
+}
+```
+
+Each entry has `addressId`, `label`, `fullName`, `phone`, `addressLine`, `city`, `province`, `postalCode`, `isDefault`, and `createdAt`. The default appears first; remaining addresses are sorted by creation time descending, then address ID descending. GET `/api/account/addresses/{id}` returns the same fields for one address owned by the caller.
+
+POST `/api/account/addresses/default/{id}` selects a default, and POST `/api/account/addresses/delete/{id}` removes an address. These require no body and return `200` with the updated address book. Selecting the current default leaves it unchanged. Deleting a nondefault address keeps the current default. Deleting the default promotes the newest remaining address. Deleting the last address returns an empty book with `defaultAddressId: null`.
+
+Missing and foreign address IDs both return `404` with `ADDRESS_NOT_FOUND`. Ownership is verified before altering a default, so a failed request cannot clear the caller's current default or modify another account. Malformed/nonpositive/out-of-range IDs return `400` with `INVALID_ADDRESS_REQUEST`; field validation errors return `VALIDATION_ERROR`.
+
+Using the `apiPost` helper below for a logged-in customer:
+
+```javascript
+const address = await apiPost('/api/account/addresses/add', {
+  label: 'Home', fullName: 'Alice Example', addressLine: '123 Main Street'
+});
+await apiPost(`/api/account/addresses/default/${address.addressId}`);
+const response = await fetch(`${API}/api/account/addresses`, { credentials: 'include' });
+console.log(await response.json());
+await apiPost(`/api/account/addresses/delete/${address.addressId}`);
+```
+
+Address mutations lock the customer row and run transactionally. A PostgreSQL partial unique index permits at most one default per customer; the service maintains a default whenever addresses remain. Concurrent additions, deletions, and selections therefore preserve the default rules. Saved addresses survive logout, email changes, and password changes because they reference the stable user ID. Deleting an account cascades to its addresses. No additional environment setting is required.
 
 ## Admin authentication and authorization
 
@@ -405,6 +463,8 @@ await apiPost('/api/auth/logout');
 
 `V4__wishlists.sql` adds `wishlist`, with foreign keys to users and products, cascading deletion, a unique user/product constraint, and indexes for listing by owner/save time and cleaning up deleted products.
 
+`V6__address_book.sql` adds `addresses`, with a cascading user foreign key, field limits/defaults, an index for newest addresses per owner, and a partial unique index for one default per customer. Version 6 leaves version 5 available for the separate cart migration. Flyway applies this migration automatically on startup.
+
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
 ## Configuration
@@ -450,3 +510,5 @@ Profile tests verify customer/admin reads and updates, role and ownership restri
 Catalog tests load the original 60-book fixture into an isolated PostgreSQL database and verify stable paging, latest products, structured details, title/description/author search, combined category filters, literal wildcard handling, hidden product/category rules, stock availability, invalid inputs, public access across roles, and demo-import preservation.
 
 Wishlist tests verify empty/saved states, structured product details, idempotent additions/removals, toggling, guest/admin rejection, account isolation, validation, CSRF protection, hidden/zero-stock rules, persistence across logout and email changes, cascading cleanup, service-level authorization, and concurrent add/toggle behavior against PostgreSQL.
+
+Address tests verify empty books, field defaults, default-first ordering, automatic first defaults, explicit/default selection, deletion promotion, ownership and role restrictions, invalid input/CSRF protection, persistence across account changes, cascading deletion, service-level authorization, and concurrent additions/default changes/deletions against PostgreSQL.
