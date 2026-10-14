@@ -30,6 +30,18 @@ public class UserRepository {
         return jdbc.query("SELECT * FROM users WHERE email = ?", mapper, normalizeEmail(email)).stream().findFirst();
     }
 
+    Optional<UserAccount> lockByEmail(String email) {
+        return jdbc.query("SELECT * FROM users WHERE email = ? FOR UPDATE", mapper, normalizeEmail(email)).stream().findFirst();
+    }
+
+    Optional<UserAccount> lockById(long userId) {
+        return jdbc.query("SELECT * FROM users WHERE user_id = ? FOR UPDATE", mapper, userId).stream().findFirst();
+    }
+
+    void updatePassword(long userId, String passwordHash) {
+        jdbc.update("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", passwordHash, userId);
+    }
+
     UserAccount create(String username, String email, String passwordHash, String phone, UserRole role) {
         return jdbc.queryForObject("""
             INSERT INTO users (username, email, password_hash, phone, role)

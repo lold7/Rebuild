@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lowcortisol.backend.auth.AdminRegisterRequest;
 import com.lowcortisol.backend.auth.AdminService;
 import com.lowcortisol.backend.auth.BootstrapAdmin;
+import com.lowcortisol.backend.auth.PasswordResetDelivery;
+import com.lowcortisol.backend.auth.PasswordResetDeliveryException;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpCookie;
@@ -15,6 +17,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.HexFormat;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,12 +36,16 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -50,6 +63,7 @@ class AuthenticationIntegrationTest {
         registry.add("app.bootstrap.admin.username", () -> "Bootstrap Admin");
         registry.add("app.bootstrap.admin.email", () -> "bootstrap@example.com");
         registry.add("app.bootstrap.admin.password", () -> "bootstrap-password");
+        registry.add("app.password-reset.delivery", () -> "demo");
     }
 
     @LocalServerPort int port;
@@ -58,12 +72,204 @@ class AuthenticationIntegrationTest {
     @Autowired PasswordEncoder encoder;
     @Autowired BootstrapAdmin bootstrap;
     @Autowired AdminService admins;
+    @MockitoSpyBean PasswordResetDelivery delivery;
 
     @BeforeEach
     void cleanDatabase() {
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM users");
+    }
+
+    @Test
+    void resetRequestStoresOnlyHashAndExpiresAfterThirtyMinutes() throws Exception {
+        Browser browser = registeredBrowser();
+        String token = requestReset(browser, "ALICE@example.com");
+        assertThat(token).matches("[a-f0-9]{64}");
+        String expectedHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+        assertThat(jdbc.queryForObject("SELECT token_hash FROM password_resets", String.class)).isEqualTo(expectedHash).isNotEqualTo(token);
+        OffsetDateTime expires = jdbc.queryForObject("SELECT expires_at FROM password_resets", (rs, row) -> rs.getObject(1, OffsetDateTime.class));
+        assertThat(expires.toInstant()).isBetween(Instant.now().plusSeconds(29 * 60), Instant.now().plusSeconds(31 * 60));
+        assertThat(browser.get(resetPath(token)).statusCode()).isEqualTo(200);
+        assertThat(browser.get(resetPath(token)).statusCode()).isEqualTo(200); // Viewing never consumes the token.
+    }
+
+    @Test
+    void resetRequestUsesGenericMessageAndCreatesNoTokenForUnknownEmail() throws Exception {
+        Browser browser = registeredBrowser();
+        HttpResponse<String> known = browser.post("/api/auth/forgot-password", Map.of("email", "alice@example.com"));
+        HttpResponse<String> unknown = browser.post("/api/auth/forgot-password", Map.of("email", "unknown@example.com"));
+        assertThat(known.statusCode()).isEqualTo(200);
+        assertThat(unknown.statusCode()).isEqualTo(200);
+        assertThat(mapper.readTree(known.body()).get("message")).isEqualTo(mapper.readTree(unknown.body()).get("message"));
+        assertThat(mapper.readTree(unknown.body()).has("resetLink")).isFalse();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM password_resets", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void resettingPasswordChangesHashAndMakesLinkSingleUse() throws Exception {
+        Browser browser = registeredBrowser();
+        String token = requestReset(browser, "alice@example.com");
+        assertThat(browser.post(resetPath(token), resetCredentials("new-customer-password")).statusCode()).isEqualTo(200);
+        String hash = jdbc.queryForObject("SELECT password_hash FROM users", String.class);
+        assertThat(encoder.matches("new-customer-password", hash)).isTrue();
+        assertThat(encoder.matches("correct-password", hash)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM password_resets", Integer.class)).isZero();
+        assertThat(browser.get(resetPath(token)).statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(token), resetCredentials("another-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.post("/api/auth/login", login(false)).statusCode()).isEqualTo(401);
+        assertThat(browser.post("/api/auth/login", Map.of("email", "alice@example.com", "password", "new-customer-password")).statusCode())
+            .isEqualTo(200);
+    }
+
+    @Test
+    void requestingAnotherLinkInvalidatesPreviousLink() throws Exception {
+        Browser browser = registeredBrowser();
+        String first = requestReset(browser, "alice@example.com");
+        String second = requestReset(browser, "alice@example.com");
+        assertThat(second).isNotEqualTo(first);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM password_resets", Integer.class)).isEqualTo(1);
+        assertThat(browser.get(resetPath(first)).statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(first), resetCredentials("new-customer-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(second), resetCredentials("new-customer-password")).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void expiredUnknownAndMalformedResetTokensAreRejectedUniformly() throws Exception {
+        Browser browser = registeredBrowser();
+        String token = requestReset(browser, "alice@example.com");
+        jdbc.update("UPDATE password_resets SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'");
+        HttpResponse<String> expired = browser.post(resetPath(token), resetCredentials("new-customer-password"));
+        HttpResponse<String> unknown = browser.post(resetPath("0".repeat(64)), resetCredentials("new-customer-password"));
+        HttpResponse<String> malformed = browser.post(resetPath("not-a-token"), resetCredentials("new-customer-password"));
+        assertThat(expired.statusCode()).isEqualTo(400);
+        assertThat(unknown.statusCode()).isEqualTo(400);
+        assertThat(malformed.statusCode()).isEqualTo(400);
+        assertThat(expired.body()).isEqualTo(unknown.body()).isEqualTo(malformed.body());
+        assertThat(browser.get(resetPath(token)).statusCode()).isEqualTo(400);
+        assertThat(encoder.matches("correct-password", jdbc.queryForObject("SELECT password_hash FROM users", String.class))).isTrue();
+    }
+
+    @Test
+    void resetValidationAndCsrfFailuresDoNotConsumeToken() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/forgot-password", Map.of("email", "invalid-email")).statusCode()).isEqualTo(400);
+        assertThat(browser.sendPost("/api/auth/forgot-password", Map.of("email", "alice@example.com"), null).statusCode()).isEqualTo(403);
+        String token = requestReset(browser, "alice@example.com");
+        assertThat(browser.sendPost(resetPath(token), resetCredentials("new-customer-password"), null).statusCode()).isEqualTo(403);
+        assertThat(browser.post(resetPath(token), Map.of("newPassword", "new-customer-password", "confirmPassword", "different-password"))
+            .statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(token), resetCredentials("short")).statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(token), resetCredentials("\u00e9".repeat(37))).statusCode()).isEqualTo(400);
+        assertThat(browser.post(resetPath(token), Map.of("newPassword", "new-customer-password")).statusCode()).isEqualTo(400);
+        assertThat(browser.get(resetPath(token)).statusCode()).isEqualTo(200);
+        assertThat(browser.post(resetPath(token), resetCredentials("new-customer-password")).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void passwordResetRevokesAllTargetSessionsAndRememberedTokensOnly() throws Exception {
+        Browser first = registeredBrowser();
+        Browser second = new Browser();
+        Browser other = new Browser();
+        assertThat(first.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        assertThat(second.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        assertThat(other.post("/api/auth/register", registration("other@example.com")).statusCode()).isEqualTo(201);
+        assertThat(other.post("/api/auth/login", Map.of("email", "other@example.com", "password", "correct-password")).statusCode())
+            .isEqualTo(200);
+        String token = requestReset(first, "alice@example.com");
+        assertThat(first.post(resetPath(token), resetCredentials("new-customer-password")).statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins WHERE username = 'alice@example.com'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session WHERE principal_name = 'alice@example.com'", Integer.class)).isZero();
+        assertThat(first.get("/api/auth/me").statusCode()).isEqualTo(401);
+        assertThat(second.get("/api/auth/me").statusCode()).isEqualTo(401);
+        assertThat(other.get("/api/auth/me").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void adminPasswordCanBeRecoveredWithoutChangingRole() throws Exception {
+        Browser admin = loggedInAdmin();
+        Browser guest = new Browser();
+        String token = requestReset(guest, "admin@example.com");
+        assertThat(guest.post(resetPath(token), resetCredentials("new-admin-password")).statusCode()).isEqualTo(200);
+        assertThat(admin.get("/api/admin/auth/me").statusCode()).isEqualTo(401);
+        assertThat(guest.post("/api/admin/auth/login", adminLogin()).statusCode()).isEqualTo(401);
+        assertThat(guest.post("/api/admin/auth/login", Map.of("email", "admin@example.com", "password", "new-admin-password")).statusCode())
+            .isEqualTo(200);
+        assertThat(guest.get("/api/admin/auth/me").statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT role FROM users", String.class)).isEqualTo("admin");
+    }
+
+    @Test
+    void concurrentAttemptsCannotUseTheSameResetTokenTwice() throws Exception {
+        Browser browser = registeredBrowser();
+        String token = requestReset(browser, "alice@example.com");
+        Browser first = new Browser();
+        Browser second = new Browser();
+        String firstCsrf = first.csrf();
+        String secondCsrf = second.csrf();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var one = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent reset did not start");
+                return first.sendPost(resetPath(token), resetCredentials("first-new-password"), firstCsrf).statusCode();
+            });
+            var two = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent reset did not start");
+                return second.sendPost(resetPath(token), resetCredentials("second-new-password"), secondCsrf).statusCode();
+            });
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            int firstStatus = one.get(10, TimeUnit.SECONDS);
+            int secondStatus = two.get(10, TimeUnit.SECONDS);
+            assertThat(new int[] {firstStatus, secondStatus}).containsExactlyInAnyOrder(200, 400);
+            String winningPassword = firstStatus == 200 ? "first-new-password" : "second-new-password";
+            assertThat(encoder.matches(winningPassword, jdbc.queryForObject("SELECT password_hash FROM users", String.class))).isTrue();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void deliveryFailureRollsBackTokenReplacementAndPreservesPreviousLink() throws Exception {
+        Browser browser = registeredBrowser();
+        String previous = requestReset(browser, "alice@example.com");
+        String hash = jdbc.queryForObject("SELECT token_hash FROM password_resets", String.class);
+        doThrow(new PasswordResetDeliveryException()).when(delivery).deliver(anyString(), anyString());
+        HttpResponse<String> response = browser.post("/api/auth/forgot-password", Map.of("email", "alice@example.com"));
+        assertThat(response.statusCode()).isEqualTo(503);
+        assertThat(mapper.readTree(response.body()).get("code").asText()).isEqualTo("RESET_DELIVERY_UNAVAILABLE");
+        assertThat(jdbc.queryForObject("SELECT token_hash FROM password_resets", String.class)).isEqualTo(hash);
+        assertThat(browser.get(resetPath(previous)).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void normalDeliveryDoesNotExposeLinksOrIdentifyRegisteredEmails() throws Exception {
+        Browser browser = registeredBrowser();
+        doReturn(null).when(delivery).deliver(anyString(), anyString());
+        HttpResponse<String> known = browser.post("/api/auth/forgot-password", Map.of("email", "alice@example.com"));
+        HttpResponse<String> unknown = browser.post("/api/auth/forgot-password", Map.of("email", "unknown@example.com"));
+        assertThat(known.statusCode()).isEqualTo(200);
+        assertThat(known.body()).isEqualTo(unknown.body());
+        assertThat(mapper.readTree(known.body()).has("resetLink")).isFalse();
+    }
+
+    private String requestReset(Browser browser, String email) throws Exception {
+        HttpResponse<String> response = browser.post("/api/auth/forgot-password", Map.of("email", email));
+        assertThat(response.statusCode()).isEqualTo(200);
+        String link = mapper.readTree(response.body()).get("resetLink").asText();
+        return link.substring(link.lastIndexOf('/') + 1);
+    }
+
+    private String resetPath(String token) {
+        return "/api/auth/reset-password/" + token;
+    }
+
+    private Map<String, Object> resetCredentials(String password) {
+        return Map.of("newPassword", password, "confirmPassword", password);
     }
 
     @Test
