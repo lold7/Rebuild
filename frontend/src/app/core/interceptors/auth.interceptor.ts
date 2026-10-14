@@ -19,7 +19,7 @@ function isAuthProbe(url: string): boolean {
  *  - clears the local session if the server says the session has expired.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(environment.apiBase)) {
+  if (req.url !== environment.apiUrl && !req.url.startsWith(`${environment.apiUrl}/`)) {
     return next(req);
   }
 

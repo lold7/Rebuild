@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: bookstore
+      POSTGRES_USER: bookstore
+      POSTGRES_PASSWORD: frontend-test-only-password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookstore -d bookstore"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ../../backend
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/bookstore
+      DB_USERNAME: bookstore
+      DB_PASSWORD: frontend-test-only-password
+      REMEMBER_ME_KEY: frontend-test-only-key-at-least-32-characters
+      ALLOWED_ORIGINS: http://localhost:5174
+      CATALOG_DEMO_ENABLED: "true"
+      FAQ_DEMO_ENABLED: "true"
+      BOOTSTRAP_ADMIN_ENABLED: "true"
+      BOOTSTRAP_ADMIN_EMAIL: frontend-admin@example.test
+      BOOTSTRAP_ADMIN_PASSWORD: frontend-test-password
+    depends_on:
+      db:
+        condition: service_healthy

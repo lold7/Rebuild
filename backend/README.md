@@ -35,13 +35,10 @@ Requires JDK 17–25 and Docker for PostgreSQL. The Maven wrapper downloads Mave
 cp .env.example .env
 # Set your secrets before continuing.
 docker compose up -d db
-set -a
-. ./.env
-set +a
 ./mvnw spring-boot:run
 ```
 
-Spring Boot does not load `.env` itself. Docker Compose reads it automatically; the local command exports its values explicitly. If using an existing PostgreSQL instance, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` instead.
+Run the Maven wrapper from the `backend` directory. Spring Boot loads `.env` from that directory automatically; exported environment variables override its values. Keep entries in `KEY=value` format without shell quotes or `export`. Docker Compose also reads `.env` automatically. If using an existing PostgreSQL instance, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` instead.
 
 ## API
 
