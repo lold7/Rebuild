@@ -1,6 +1,6 @@
-# Customer and admin authentication backend
+# Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication, admin authentication/authorization, profile management, and password recovery as a JSON API: customer registration, login, logout, 30-day Remember me, separate admin login, restricted admin account creation, profile updates, password changes, and expiring password-reset links.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, and password recovery as JSON APIs.
 
 ## Run with Docker
 
@@ -54,6 +54,13 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | GET | `/api/admin/profile` | Admin only. Returns the admin's current public profile fields. |
 | POST | `/api/admin/profile` | Admin only. Updates the admin's own username, email, and phone. |
 | POST | `/api/admin/password` | Admin only. Verifies the current password and changes it. |
+| GET | `/api/products` | Public. Lists visible products, 15 per page; accepts `page`, `q`, and `category`. |
+| GET | `/api/products/search` | Public. Searches titles, descriptions, and authors with the same paging/filter parameters. |
+| GET | `/api/products/featured` | Public. Returns the eight newest visible products. |
+| GET | `/api/products/{id}` | Public. Retrieves one visible product and its stock and JSON attributes. |
+| GET | `/api/categories` | Public. Lists visible categories. |
+| GET | `/api/categories/{idOrSlug}` | Public. Retrieves a visible category by numeric ID or slug. |
+| GET | `/api/categories/{idOrSlug}/products` | Public. Lists products in a visible category; accepts `page` and `q`. |
 
 Registration body:
 
@@ -93,6 +100,50 @@ Successful registration, login, and `/me` return:
 ```
 
 Errors return `{ "code": "...", "message": "...", "fieldErrors": {} }`. Validation and malformed JSON return `400`; duplicate emails return `409`; invalid credentials and missing authentication return `401`; invalid CSRF tokens and forbidden access return `403`.
+
+## Product retrieval and search
+
+Catalog GET endpoints are available to guests, customers, and admins without a login or CSRF token. The public queries require both the product and its category to be visible. Hidden products and products in hidden categories return `404` when requested directly and are excluded from listings, featured products, and searches.
+
+Examples:
+
+```sh
+curl 'http://localhost:8080/api/products?page=2'
+curl 'http://localhost:8080/api/products/search?q=Murakami'
+curl 'http://localhost:8080/api/products?q=Harry&category=children'
+curl 'http://localhost:8080/api/products/featured'
+curl 'http://localhost:8080/api/products/1'
+curl 'http://localhost:8080/api/categories'
+curl 'http://localhost:8080/api/categories/fiction/products'
+```
+
+Product listings, search results, and category listings all use 15-item pages. Pages start at 1 and are sorted by creation time descending, then product ID descending to give stable results when creation times match. Responses include:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 15,
+  "totalItems": 0,
+  "totalPages": 0
+}
+```
+
+`items` contains product objects with `productId`, `categoryId`, `categoryName`, `categorySlug`, `productName`, `productDescription`, `productPrice`, `productImages`, `productAttributes`, `productQuantity`, `inStock`, `maxQuantity`, and `createdAt`. Prices use decimal database values. Images are a JSON array; attributes are a JSON object, retaining author and available formats. `maxQuantity` is the lesser of 10 and current stock, matching the original product-detail selector.
+
+Stock and visibility remain separate: a visible zero-stock product can still be retrieved and reports `inStock: false` and `maxQuantity: 0`. Public retrieval does not change stock or visibility.
+
+Search is case-insensitive substring matching over product name, description, and `product_attributes.author`. It excludes other attributes such as format. Leading/trailing query whitespace is removed; a missing or blank `q` returns the regular product listing. SQL values are parameterized, and `%`, `_`, and `!` are treated as literal search characters. Category and keyword filters can be combined on `/api/products` or `/api/products/search`.
+
+Categories accept numeric IDs or stored slugs. The original five demo categories retain their short slugs: `fiction`, `children`, `nonfiction`, `mystery`, and `science`. Empty visible categories return an empty product page. Unknown or hidden categories return `404` with code `CATALOG_NOT_FOUND`, as do invalid, missing, or hidden product IDs. Invalid page values and queries longer than 255 characters return `400` with code `INVALID_CATALOG_REQUEST`. A valid page beyond the end returns an empty `items` array while preserving the count metadata.
+
+### Optional original demo catalog
+
+`V3__product_catalog.sql` creates the catalog tables through Flyway. To import the original project's five categories and 60 books, add `CATALOG_DEMO_ENABLED=true` to your existing `.env` and restart the backend. `.env.example` enables this for local development. Without the setting, the schema starts empty and the catalog APIs return empty lists.
+
+The startup import runs only if both catalog tables are empty. It uses a transaction and PostgreSQL advisory lock so multiple instances cannot import simultaneously. It preserves an existing or partially populated catalog and does not import customer accounts, credentials, or orders. The identity sequences advance past the imported IDs, allowing later products/categories to use generated IDs.
+
+Demo data is adapted from [the original catalog SQL](https://github.com/lold7/front-end-low-cortisol/blob/main/sql/init.sql). Image fields preserve the original filenames; image binaries are not included in this backend. Serve the corresponding assets through the frontend or an image host.
 
 ## Admin authentication and authorization
 
@@ -304,6 +355,8 @@ await apiPost('/api/auth/logout');
 
 `V2__password_recovery.sql` adds `password_resets`: a unique account reference, unique SHA-256 token hash, expiry timestamp, and creation timestamp. It upgrades existing databases through Flyway without modifying the first migration. Deleting an account cascades to its reset token.
 
+`V3__product_catalog.sql` adds `categories` and `products`. Category slugs are unique. Products reference categories with restricted deletion, use `NUMERIC(10,2)` prices, nonnegative stock, and `JSONB` images/attributes. Indexes support category lookup and newest-visible-product listings. The optional startup fixture is stored separately in `db/demo/catalog.sql`.
+
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
 ## Configuration
@@ -317,6 +370,7 @@ All account queries are parameterized. Registration relies on PostgreSQL's uniqu
 | `COOKIE_SECURE` | `false` for local HTTP; set `true` when serving over HTTPS |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | `8080` for local runs |
+| `CATALOG_DEMO_ENABLED` | `false`; enable to import the original catalog when both catalog tables are empty |
 | `BOOTSTRAP_ADMIN_ENABLED` | `false`; enable explicitly to provision the initial admin |
 | `BOOTSTRAP_ADMIN_USERNAME` | `admin` |
 | `BOOTSTRAP_ADMIN_EMAIL` | Required when bootstrap is enabled |
@@ -344,3 +398,5 @@ Tests start an isolated PostgreSQL 17 container and the real HTTP server. They v
 Recovery tests verify hashed tokens, 30-minute expiry, replacement, single use, concurrent reset attempts, password validation, CSRF protection, customer/admin recovery, session and remembered-token revocation, and rollback on delivery failure. Mail tests verify SMTP message construction and transport-failure handling using a mock sender; they do not contact a real email provider.
 
 Profile tests verify customer/admin reads and updates, role and ownership restrictions, validation, CSRF protection, password verification, case-insensitive email changes, duplicate-email rollback, preserved login state for name/phone edits, and revocation of sessions/tokens after email or password changes.
+
+Catalog tests load the original 60-book fixture into an isolated PostgreSQL database and verify stable paging, latest products, structured details, title/description/author search, combined category filters, literal wildcard handling, hidden product/category rules, stock availability, invalid inputs, public access across roles, and demo-import preservation.

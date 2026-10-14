@@ -3,6 +3,8 @@ package com.lowcortisol.backend.api;
 import com.lowcortisol.backend.auth.InvalidPasswordResetException;
 import com.lowcortisol.backend.auth.PasswordResetDeliveryException;
 import com.lowcortisol.backend.auth.IncorrectCurrentPasswordException;
+import com.lowcortisol.backend.catalog.CatalogNotFoundException;
+import com.lowcortisol.backend.catalog.InvalidCatalogRequestException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -16,6 +18,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(CatalogNotFoundException.class)
+    ResponseEntity<ApiError> catalogNotFound(CatalogNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError("CATALOG_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidCatalogRequestException.class)
+    ResponseEntity<ApiError> invalidCatalogRequest(InvalidCatalogRequestException exception) {
+        return ResponseEntity.badRequest().body(new ApiError("INVALID_CATALOG_REQUEST", exception.getMessage()));
+    }
+
     @ExceptionHandler(IncorrectCurrentPasswordException.class)
     ResponseEntity<ApiError> incorrectPassword(IncorrectCurrentPasswordException exception) {
         return ResponseEntity.badRequest().body(new ApiError("INCORRECT_CURRENT_PASSWORD", exception.getMessage()));

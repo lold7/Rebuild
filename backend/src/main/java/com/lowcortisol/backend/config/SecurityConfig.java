@@ -116,6 +116,7 @@ public class SecurityConfig {
             .csrf(config -> config.csrfTokenRepository(csrf))
             .securityContext(config -> config.securityContextRepository(contexts))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**", "/api/categories", "/api/categories/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/reset-password/*").permitAll()
