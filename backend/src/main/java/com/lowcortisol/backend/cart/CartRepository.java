@@ -41,6 +41,15 @@ public class CartRepository {
         return jdbc.query(SELECT_ROWS + " ORDER BY ci.created_at DESC, ci.cart_item_id DESC", rows, userId);
     }
 
+    void lockProductsForCheckout(long userId) {
+        // Every checkout locks products in the same order to avoid competing-customer deadlocks.
+        jdbc.query("""
+            SELECT p.product_id FROM products p JOIN categories c ON c.category_id = p.category_id
+            WHERE p.product_id IN (SELECT product_id FROM cart_items WHERE user_id = ?)
+            ORDER BY p.product_id FOR UPDATE OF p FOR SHARE OF c
+            """, (rs, row) -> rs.getLong("product_id"), userId);
+    }
+
     Optional<CartRow> ownedItem(long userId, long cartItemId) {
         return jdbc.query(SELECT_ROWS + " AND ci.cart_item_id = ?", rows, userId, cartItemId).stream().findFirst();
     }

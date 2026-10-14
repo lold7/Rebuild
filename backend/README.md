@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, and saved payment method metadata as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, and order creation as JSON APIs.
 
 ## Run with Docker
 
@@ -81,6 +81,9 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/account/payment-methods/add` | Customer only. Saves masked card metadata; the first active card becomes the default. |
 | POST | `/api/account/payment-methods/delete/{id}` | Customer only. Removes an owned card, preserving the last active card and promoting a remaining active default. |
 | POST | `/api/account/payment-methods/default/{id}` | Customer only. Selects an owned, unexpired card as the default. |
+| GET | `/api/checkout` | Customer only. Previews the current cart, addresses, saved cards, payment choices, and checkout readiness. |
+| POST | `/api/orders` | Customer only. Creates a pending, unpaid order from the current cart; requires `Idempotency-Key` and CSRF headers. |
+| GET | `/api/orders/{id}` | Customer only. Retrieves an owned order with its saved shipping, product, price, and payment metadata. |
 
 Registration body:
 
@@ -344,7 +347,7 @@ POST `/api/account/payment-methods/add`:
 
 Returns `201` and a `Location` header pointing to `/api/account/payment-methods/{paymentMethodId}`. The response includes `paymentMethodId`, the submitted normalized display fields, `isDefault`, `expired`, and `createdAt`. `last4` must be exactly four digits and is a string to preserve leading zeros. Cardholder names are required and limited to 200 characters. Types are `CREDIT` or `DEBIT`; brands are `visa`, `mastercard`, `amex`, `discover`, `jcb`, `unionpay`, `diners`, or `other`. Type/brand matching ignores case and surrounding whitespace. Currency defaults to `USD`, accepts ISO currency codes, and is normalized to uppercase. Expiry month/year must be integers in 1–12 and 2000–9999, respectively, and the card must be unexpired when saved.
 
-The table and API store display metadata only. Full card numbers, CVV/CVC, and processor tokens are excluded from the schema and request contract; submitting those extra fields returns `400`. This feature manages account preferences. Tokenization, verification of card ownership, payment charging, checkout integration, wallets, and bank accounts require a separate payment-provider integration. The existing frontend remains unchanged.
+The table and API store display metadata only. Full card numbers, CVV/CVC, and processor tokens are excluded from the schema and request contract; submitting those extra fields returns `400`. This feature manages account preferences, and checkout can snapshot a selected saved card. Tokenization, verification of card ownership, payment charging, wallets, and bank accounts require a separate payment-provider integration. The existing frontend remains unchanged.
 
 GET `/api/account/payment-methods` returns:
 
@@ -393,6 +396,59 @@ await apiPost(`/api/account/payment-methods/delete/${method.paymentMethodId}`);
 ```
 
 Mutations lock the customer row and run in a transaction. A PostgreSQL partial unique index permits at most one default per customer. Concurrent removals preserve the last active card. Saved entries reference the stable user ID, survive logout and email/password changes, and cascade on account deletion. Matching last four digits do not uniquely identify a card, so distinct saved entries are not deduplicated by those digits. No additional environment variables are required.
+
+## Checkout and order creation
+
+GET `/api/checkout` returns `{ cart, addressBook, savedPaymentMethods, paymentMethods, currency, ready }`. The nested cart, address book, and saved-card objects use the existing APIs' response shapes. `paymentMethods` contains `CREDIT_CARD`, `DEBIT_CARD`, `BANK_TRANSFER`, and `DIGITAL_WALLET`; `currency` is `USD`. `ready` is true when the cart is nonempty and valid and a shipping address exists. It indicates readiness to submit a pending order; a selected saved card is validated separately during creation.
+
+Preview reads use a consistent PostgreSQL snapshot. They do not reserve stock, create orders, or clear the cart. Prices, visibility, formats, stock, address ownership, and any selected card are rechecked when placing the order.
+
+POST `/api/orders` requires a customer session, a fresh `X-CSRF-TOKEN`, and an `Idempotency-Key` header. Example body:
+
+```json
+{
+  "addressId": 1,
+  "paymentMethod": "CREDIT_CARD",
+  "savedPaymentMethodId": 2
+}
+```
+
+`paymentMethod` is required. Matching ignores case, surrounding whitespace, and accepts spaces in place of underscores, such as `Bank Transfer`. `addressId` is optional: if omitted/null, the customer's default shipping address is used, falling back to the first saved address. A shipping address is required. `savedPaymentMethodId` is optional; when present it must be owned, unexpired, denominated in USD, and match `CREDIT_CARD`/`DEBIT_CARD`. Saved cards cannot be supplied for bank transfers or digital wallets. Card metadata is not a verified payment authorization.
+
+The server calculates all quantities and prices from the current cart and locked catalog data. Client totals, items, currency, account IDs, order status, payment status, and raw card fields are rejected as unknown JSON fields. Totals use exact decimal arithmetic and represent the sum of order lines; shipping fees and tax calculations are not configured.
+
+A successful new order returns `201`, a `Location: /api/orders/{orderId}` header, and the full order:
+
+- `orderId`, `status: "pending"`, `paymentStatus: "unpaid"`, normalized `paymentMethod`, and `currency: "USD"`.
+- `totalItems` (line count), `totalQuantity`, `totalPrice`, and `createdAt`.
+- `address`: the shipping-address snapshot, including its original ID and shipping fields.
+- `savedPaymentMethod`: selected masked card metadata, or null if no saved card was selected.
+- `items`: each `orderItemId`, product snapshot (ID, name, category, images, attributes), selected attributes, quantity, unit price, and line total.
+
+Creation locks the customer to serialize cart/address/card changes and competing requests for that account, then locks all cart products in ascending ID order and their categories. Stock is checked across all formats of each book and deducted once per product. Order headers/items, stock deduction, and cart clearing commit together. Any validation or database failure leaves stock and the cart unchanged and creates no partial order. Competing customers cannot purchase more than the available stock. Only the ordering customer's cart is cleared.
+
+The idempotency key must contain 1–100 letters, digits, dots, underscores, colons, or hyphens and start with a letter or digit. Generate one key per order attempt and reuse it for retries. For the same customer and the same address/payment selections, a retry returns the original order with `200` and its `Location`, even after the cart is cleared or the original address/card is removed. It does not consume a newly filled cart. Reusing a key with different selections returns `409` with `IDEMPOTENCY_KEY_REUSED`. Keys are scoped to the customer; different customers can use the same key. Concurrent requests with different keys cannot consume the same cart twice.
+
+GET `/api/orders/{id}` reads only the authenticated customer's order. Foreign and missing IDs both return `404` with `ORDER_NOT_FOUND`. Invalid IDs/headers/payment selections and missing shipping addresses return `400` with `INVALID_ORDER_REQUEST`; request-field validation returns `VALIDATION_ERROR`. Missing/foreign address and card selections use the existing `ADDRESS_NOT_FOUND`/`PAYMENT_METHOD_NOT_FOUND` responses. Creation rejects invalid carts with `409`: `EMPTY_CART`, `PRODUCT_UNAVAILABLE`, `INVALID_CART_FORMAT`, or `INSUFFICIENT_STOCK`. Database failures return a generic `500` with `DATABASE_ERROR`, without exposing SQL or order details.
+
+Using the `apiPost` helper below:
+
+```javascript
+const previewResponse = await fetch(`${API}/api/checkout`, { credentials: 'include' });
+const preview = await previewResponse.json();
+if (!preview.ready) throw new Error('Check cart and shipping address');
+
+const attemptKey = crypto.randomUUID(); // Retain this key if the request needs retrying.
+const selections = {
+  addressId: preview.addressBook.defaultAddressId,
+  paymentMethod: 'BANK_TRANSFER'
+};
+const order = await apiPost('/api/orders', selections, { 'Idempotency-Key': attemptKey });
+const orderResponse = await fetch(`${API}/api/orders/${order.orderId}`, { credentials: 'include' });
+console.log(await orderResponse.json());
+```
+
+Snapshots preserve the order's shipping fields, masked payment metadata, product details, formats, and prices after catalog edits or deletion of the original address/card/product. Orders survive logout and email/password changes. These endpoints create pending, unpaid orders and deduct stock immediately. Payment-provider processing, order-history listing, cancellation/refunds/restocking, and fulfillment are separate features. The original frontend's snake_case order payload and checkout response need adaptation to this camelCase API contract.
 
 ## Admin authentication and authorization
 
@@ -552,7 +608,7 @@ Use `credentials: 'include'` for every request, including the initial CSRF fetch
 ```javascript
 const API = 'http://localhost:8080';
 
-async function apiPost(path, body = {}) {
+async function apiPost(path, body = {}, extraHeaders = {}) {
   const csrfResponse = await fetch(`${API}/api/auth/csrf`, {
     credentials: 'include'
   });
@@ -563,6 +619,7 @@ async function apiPost(path, body = {}) {
     method: 'POST',
     credentials: 'include',
     headers: {
+      ...extraHeaders,
       'Content-Type': 'application/json',
       [csrf.headerName]: csrf.token
     },
@@ -614,7 +671,9 @@ await apiPost('/api/auth/logout');
 
 `V7__saved_payment_methods.sql` adds `payment_methods`: a cascading user foreign key, masked display fields, validated card types/brands/expiry ranges, default USD currency, creation timestamp, a newest-per-owner index, and a partial unique index for one default per customer. Flyway applies it to existing databases on startup.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V7 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V8__checkout_and_orders.sql` adds `orders` and `order_items`. Orders reference users, optionally retain source address/card references with `ON DELETE SET NULL`, and store immutable JSONB shipping/payment snapshots, USD decimal totals, statuses, a SHA-256 request fingerprint, and a unique customer/idempotency key. Order items cascade with their order, retain JSONB product/format snapshots, permit source product deletion, enforce quantity/price limits, and generate line totals from quantity × unit price. Owner/newest and foreign-key indexes support lookups. Flyway applies V8 automatically without changing earlier migrations.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V8 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -669,3 +728,5 @@ Cart tests verify empty totals, matching-format merging, separate formats, defau
 The merge regression test starts with an address-branch database at V6 without V5, verifies the startup failure without out-of-order migration, then verifies automatic cart migration, preservation of existing customer/address data, and cart/address operations and error responses in the same customer session.
 
 Payment method tests verify empty lists, normalized masked metadata, type filtering, default ordering/selection, expiry-month boundaries, expired default replacement, removal/promotion and last-active-card protection, ownership and role restrictions, CSRF, raw-card-field rejection, service validation/authorization, database constraints, persistence across account changes, cascading deletion, and concurrent additions/default selections/removals against PostgreSQL.
+
+Checkout/order tests verify nonmutating previews, default/explicit shipping, saved-card selection, current-price totals, format aggregation, stock deduction, owned cart clearing, snapshots surviving source deletion, idempotent retries, ownership/roles/CSRF/CORS, validation and total/status injection rejection, invalid/expired/currency-mismatched selections, database constraints, account-change persistence, simulated storage-failure rollback and retry, concurrent duplicate submissions, and competing-customer stock/deadlock protection against PostgreSQL.
