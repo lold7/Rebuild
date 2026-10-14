@@ -1,6 +1,6 @@
 # Customer and admin authentication backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication, admin authentication/authorization, and password recovery as a JSON API: customer registration, login, logout, 30-day Remember me, separate admin login, restricted admin account creation, and expiring password-reset links.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication, admin authentication/authorization, profile management, and password recovery as a JSON API: customer registration, login, logout, 30-day Remember me, separate admin login, restricted admin account creation, profile updates, password changes, and expiring password-reset links.
 
 ## Run with Docker
 
@@ -48,6 +48,12 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/auth/forgot-password` | Public. Requests a 30-minute password-reset link for a customer or admin account. |
 | GET | `/api/auth/reset-password/{token}` | Public. Checks a reset link without consuming it; returns `{ "valid": true }` or `400`. |
 | POST | `/api/auth/reset-password/{token}` | Public. Changes the password, consumes the token, and revokes the account's sessions and remembered logins. |
+| GET | `/api/account/profile` | Customer only. Returns the customer's current public profile fields. |
+| POST | `/api/account/profile` | Customer only. Updates the customer's own username, email, and phone. |
+| POST | `/api/account/password` | Customer only. Verifies the current password and changes it. |
+| GET | `/api/admin/profile` | Admin only. Returns the admin's current public profile fields. |
+| POST | `/api/admin/profile` | Admin only. Updates the admin's own username, email, and phone. |
+| POST | `/api/admin/password` | Admin only. Verifies the current password and changes it. |
 
 Registration body:
 
@@ -133,6 +139,57 @@ BOOTSTRAP_ADMIN_PASSWORD=your-own-long-admin-password
 Start with `docker compose up --build` (or export `.env` and use `./mvnw spring-boot:run`). The startup runner validates the fields and stores a BCrypt password hash. After the first successful start, set `BOOTSTRAP_ADMIN_ENABLED=false`, remove the bootstrap password, and restart. Subsequent admins are created by a logged-in admin through the protected endpoint.
 
 The setup is idempotent: an existing admin email is left unchanged, including its password. An email already owned by a customer causes startup to fail; it never promotes that customer. No default admin account or password is included in the schema.
+
+## Profile management
+
+Customers use `/api/account/profile` and `/api/account/password`; admins use `/api/admin/profile` and `/api/admin/password`. These endpoints operate only on the authenticated identity. There is no request-supplied target account ID or role. Role checks protect both the endpoints and the service layer, and API responses exclude passwords and hashes.
+
+GET on the profile endpoint returns the same public account fields as `/api/auth/me` or `/api/admin/auth/me`. POST on the profile endpoint accepts:
+
+```json
+{
+  "username": "Alice Updated",
+  "email": "alice@example.com",
+  "phone": "0899999999"
+}
+```
+
+Username is required, trimmed, and limited to 100 characters. Email is required, validated, lowercased, and limited to 255 characters. Phone is optional and limited to 20 characters; omitting it or sending an empty string clears the saved phone number. This POST replaces these profile fields rather than applying a partial update. Unknown fields, including `role` and `userId`, return `400`.
+
+A successful update returns:
+
+```json
+{
+  "user": {
+    "userId": 1,
+    "username": "Alice Updated",
+    "email": "alice@example.com",
+    "phone": "0899999999",
+    "role": "customer"
+  },
+  "reauthenticationRequired": false
+}
+```
+
+Name and phone updates keep the current login and remembered-login state. Changing only the email's letter case also keeps the login because emails are normalized. Changing to a different email returns `reauthenticationRequired: true`, signs the current browser out, and revokes all of the account's previous sessions, remembered-login tokens, and pending reset links. Log in again with the new email and the existing password. The account ID and role remain unchanged.
+
+Email uniqueness applies across customers and admins. A conflicting email returns `409` with code `EMAIL_IN_USE`. The transaction rolls back all changes, including session/token revocation, so the existing account and login remain usable.
+
+POST on the password endpoint accepts:
+
+```json
+{
+  "currentPassword": "your-current-password",
+  "newPassword": "your-new-long-password",
+  "confirmPassword": "your-new-long-password"
+}
+```
+
+The current password must match the stored BCrypt hash. The new password must be confirmed, contain at least 8 characters, and fit within the 72 UTF-8 byte limit. An incorrect current password returns `400` with code `INCORRECT_CURRENT_PASSWORD`; validation failures return `400` with code `VALIDATION_ERROR`. Both leave the password, login sessions, and reset links unchanged.
+
+A successful password change returns `200` with `{ "message": "Password changed successfully. Please log in." }`. It updates the hash and timestamp and revokes all of the account's sessions, remembered-login tokens, and pending reset links in one transaction. The current browser is signed out; log in again with the new password. Other accounts remain logged in. All profile and password POST requests require a CSRF token and cookie, using the `apiPost` helper below.
+
+Profile management uses the existing `users` columns and authentication tables, so no additional migration or environment setting is required.
 
 ## Password recovery
 
@@ -285,3 +342,5 @@ With Docker running:
 Tests start an isolated PostgreSQL 17 container and the real HTTP server. They verify customer and admin password authentication, email uniqueness across roles, validation, role injection rejection, database session persistence, session ID rotation, CSRF enforcement, CORS, remembered login, expired/tampered cookies, and logout revocation. Admin tests also cover restricted account creation, rejection of guest/customer access, role separation, service-layer authorization, switching accounts, and idempotent bootstrap that cannot promote a customer. Test containers are removed automatically; tests do not use the application database.
 
 Recovery tests verify hashed tokens, 30-minute expiry, replacement, single use, concurrent reset attempts, password validation, CSRF protection, customer/admin recovery, session and remembered-token revocation, and rollback on delivery failure. Mail tests verify SMTP message construction and transport-failure handling using a mock sender; they do not contact a real email provider.
+
+Profile tests verify customer/admin reads and updates, role and ownership restrictions, validation, CSRF protection, password verification, case-insensitive email changes, duplicate-email rollback, preserved login state for name/phone edits, and revocation of sessions/tokens after email or password changes.

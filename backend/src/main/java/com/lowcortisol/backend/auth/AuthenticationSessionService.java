@@ -9,6 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenBasedRememberMeServices;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -42,5 +43,10 @@ public class AuthenticationSessionService {
         } else {
             rememberMe.logout(request, response, authentication);
         }
+    }
+
+    public void clear(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
+        rememberMe.logout(request, response, authentication);
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
     }
 }

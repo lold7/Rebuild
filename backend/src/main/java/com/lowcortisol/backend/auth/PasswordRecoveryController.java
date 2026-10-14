@@ -5,8 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
-import org.springframework.security.web.authentication.rememberme.PersistentTokenBasedRememberMeServices;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class PasswordRecoveryController {
     private final PasswordRecoveryService recovery;
-    private final PersistentTokenBasedRememberMeServices rememberMe;
+    private final AuthenticationSessionService sessions;
 
-    public PasswordRecoveryController(PasswordRecoveryService recovery, PersistentTokenBasedRememberMeServices rememberMe) {
+    public PasswordRecoveryController(PasswordRecoveryService recovery, AuthenticationSessionService sessions) {
         this.recovery = recovery;
-        this.rememberMe = rememberMe;
+        this.sessions = sessions;
     }
 
     @PostMapping("/forgot-password")
@@ -42,8 +40,7 @@ public class PasswordRecoveryController {
         Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
         String email = recovery.resetPassword(token, credentials.newPassword());
         if (authentication != null && authentication.getName().equals(email)) {
-            rememberMe.logout(request, response, authentication);
-            new SecurityContextLogoutHandler().logout(request, response, authentication);
+            sessions.clear(authentication, request, response);
         }
         return new ResetPasswordResponse("Password reset successfully. Please log in.");
     }

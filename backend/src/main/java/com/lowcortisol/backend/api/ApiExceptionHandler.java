@@ -2,6 +2,7 @@ package com.lowcortisol.backend.api;
 
 import com.lowcortisol.backend.auth.InvalidPasswordResetException;
 import com.lowcortisol.backend.auth.PasswordResetDeliveryException;
+import com.lowcortisol.backend.auth.IncorrectCurrentPasswordException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -15,6 +16,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(IncorrectCurrentPasswordException.class)
+    ResponseEntity<ApiError> incorrectPassword(IncorrectCurrentPasswordException exception) {
+        return ResponseEntity.badRequest().body(new ApiError("INCORRECT_CURRENT_PASSWORD", exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidPasswordResetException.class)
     ResponseEntity<ApiError> invalidReset(InvalidPasswordResetException exception) {
         return ResponseEntity.badRequest().body(new ApiError("INVALID_RESET_TOKEN", exception.getMessage()));
