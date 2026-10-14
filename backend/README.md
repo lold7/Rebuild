@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, and admin order management.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, admin order management, and admin customer reporting.
 
 ## Run with Docker
 
@@ -89,6 +89,9 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | GET | `/api/admin/orders/{id}` | Admin only. Retrieves complete order snapshots, customer contact, and current order version. |
 | PUT | `/api/admin/orders/{id}/status` | Admin only. Completes or cancels a pending order; requires `expectedVersion`, `reason`, and CSRF. Cancellation restores remaining products' stock. |
 | GET | `/api/admin/orders/{id}/status-history` | Admin only. Lists recorded status changes, 15 per page; accepts `page`. |
+| GET | `/api/admin/customers` | Admin only. Lists customer contacts and order/spending metrics, 15 per page; accepts `page`, `q`, `activity`, and `sort`. |
+| GET | `/api/admin/customers/summary` | Admin only. Returns customer/order counts and monetary totals for the same optional `q`/`activity` filters. |
+| GET | `/api/admin/customers/{id}` | Admin only. Retrieves one customer's contacts and lifetime order/spending metrics. |
 | GET | `/api/admin/products`, `/api/admin/inventory` | Admin only. Lists all products, including hidden ones, with paging, search, category, visibility, and stock filters. |
 | GET | `/api/admin/products/{id}` | Admin only. Retrieves product metadata, visibility, stock, and current version. |
 | POST | `/api/admin/products` | Admin only. Creates a product with optional initial stock, images, attributes, and visibility. |
@@ -736,6 +739,35 @@ GET `/api/admin/orders/{id}/status-history?page=1` returns `{ items, page, pageS
 
 Missing orders return `404` with `ADMIN_ORDER_NOT_FOUND`. Invalid IDs, pages, filters, or status values return `400` with `INVALID_ADMIN_ORDER_REQUEST`; invalid request fields use `VALIDATION_ERROR` or `INVALID_JSON`. No new configuration is required. The original frontend must consume `response.items`, map the nested camelCase order/customer fields, and include the displayed `version` as `expectedVersion` plus a reason when changing status.
 
+## Admin customer reporting
+
+GET `/api/admin/customers` returns `{ items, page, pageSize, totalItems, totalPages }`, with up to 15 customers per page. Admin accounts are excluded. A customer with no orders is included with zero metrics and `lastOrderAt: null`. All reporting endpoints require an admin session; guests receive `401`, customers receive `403`, and service authorization also checks the authenticated admin identity. These GET endpoints do not require a CSRF token and do not modify accounts, orders, payments, carts, or stock.
+
+Query parameters:
+
+| Parameter | Meaning |
+| --- | --- |
+| `page` | Positive 32-bit page number, default `1`. Pages beyond the last page retain totals and return empty `items`. |
+| `q` | Case-insensitive substring search of customer name/email, up to 255 characters. Surrounding whitespace is ignored; `%`, `_`, `!`, and SQL text are literal. |
+| `activity` | `all` (default), `ordered` (at least one order, including cancelled orders), or `no-orders`. |
+| `sort` | `newest` (default), `orders` (highest order count), or `spent` (highest recorded paid total). Ties use newest customer creation date, then highest user ID. |
+
+`activity` and `sort` ignore case and surrounding whitespace. Filters combine. For example, `/api/admin/customers?q=alice&activity=ordered&sort=spent&page=1` searches matching customers who have placed an order.
+
+Each item and GET `/api/admin/customers/{id}` include `userId`, `username`, `email`, nullable `phone`, `createdAt`, `updatedAt`, `orderCount`, `pendingOrderCount`, `completedOrderCount`, `cancelledOrderCount`, `orderValue`, `totalSpent`, `currency: "USD"`, and nullable `lastOrderAt`. Contact fields describe the current account; order metrics use stored order headers and historical prices. Passwords/hashes, roles, sessions, login/reset tokens, shipping addresses, and saved payment details are excluded.
+
+Metrics cover the customer's full order history:
+
+- `orderCount` includes all order statuses; the three status counts add up to it. `lastOrderAt` is the newest order creation timestamp, including cancelled orders.
+- `orderValue` sums historical totals of pending/completed orders, excluding cancelled orders, regardless of payment status. It describes order value and does not imply that money was received.
+- `totalSpent` sums orders whose current `paymentStatus` is `paid`. Unpaid and refunded orders contribute zero. A paid cancelled order remains included until its payment is recorded as refunded, because admin cancellation itself does not issue a refund. New checkout orders are unpaid and initially contribute zero.
+
+All monetary aggregation uses PostgreSQL `NUMERIC` and Java `BigDecimal`. Totals come from order headers, so an order with multiple items is counted once. Reports reflect committed checkout, status/payment changes, and profile updates without a separate refresh/import job. Product/address/card deletion does not change historical totals. Each list's count and contents use one consistent PostgreSQL snapshot, including when customers register or orders commit during the request.
+
+GET `/api/admin/customers/summary?q=alice&activity=ordered` returns `totalCustomers`, `customersWithOrders`, `customersWithoutOrders`, `totalOrders`, `pendingOrders`, `completedOrders`, `cancelledOrders`, `orderValue`, `totalSpent`, and `currency`. The same `q` and `activity` filters apply to the whole matching customer group, independently of list pagination. Empty matches return zero counts and amounts. Use `/api/admin/orders?customerId={userId}` for the selected customer's full paginated order details through the existing admin order API.
+
+Invalid IDs, pages, search lengths, activity filters, or sorts return `400` with `INVALID_ADMIN_CUSTOMER_REQUEST`. Missing customer IDs and admin account IDs both return `404` with `ADMIN_CUSTOMER_NOT_FOUND`. No new environment variables are required. The original frontend must consume `response.items`, map `user_id`, `order_count`, and `total_spent` to `userId`, `orderCount`, and `totalSpent`, and add pagination/search controls for the full report. Its hardcoded Active badge is not an account-state field provided by this API.
+
 ## Profile management
 
 Customers use `/api/account/profile` and `/api/account/password`; admins use `/api/admin/profile` and `/api/admin/password`. These endpoints operate only on the authenticated identity. There is no request-supplied target account ID or role. Role checks protect both the endpoints and the service layer, and API responses exclude passwords and hashes.
@@ -921,7 +953,9 @@ await apiPost('/api/auth/logout');
 
 `V12__admin_order_management.sql` adds order versions/update timestamps, a stock-restoration marker constrained to cancelled orders, global/status newest indexes, and `order_status_changes` with actor references, reasons, and unique per-order change versions. Inventory adjustments gain an optional order reference that clears on order deletion. Existing order statuses, payment states, totals, item/shipping/payment snapshots, and stock are preserved. Existing cancelled orders are not automatically restocked; their new marker remains false. New pending-order cancellations process restoration atomically and set it true.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V12 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V13__admin_customer_reporting.sql` adds a partial customer/newest index and the live `admin_customer_order_statistics` view. The view aggregates existing order headers by customer, with status counts, non-cancelled order values, paid totals, and latest order timestamps. The reporting repository left-joins it to customers so accounts with no purchases remain visible. Existing customer/order data and earlier migration checksums remain unchanged; no report rows or credentials are copied into a new table.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V13 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -987,3 +1021,5 @@ Admin product tests verify hidden product/category access, paging/search/stock f
 Admin category tests verify the existing list contract, counts/search/visibility filters, normalized creation and public slug lookup, Unicode/numeric name handling, stable slugs on rename, image clearing, slug conflicts and rollback, live product metadata changes with preserved order snapshots, cart/wishlist/checkout visibility behavior, no-op visibility and safe toggle retries, nonempty deletion protection, validation/role/CSRF/service restrictions, concurrent edits/slug creation, deletion racing product assignment, and hiding racing checkout against PostgreSQL.
 
 Admin order tests verify cross-customer paging/search/status filters, complete historical details and safe contact fields, completion/cancellation audit records, payment-state preservation, terminal/no-op/stale transitions, format-aggregated stock restoration exactly once, inventory version protection, deleted-product handling, stock overflow and storage-failure rollback/retry, legacy cancelled orders, validation/role/CSRF/service restrictions, audit reference cleanup, consistent count/page snapshots, competing updates/cancellations, cancellation racing checkout, and cancellation racing product deletion against PostgreSQL.
+
+Admin customer reporting tests verify empty/zero-order reports, exclusion of admins, safe contact fields, status/payment-aware totals without item duplication, exact decimals and large sums, bounded paging/tie ordering, search/activity/sort filters, filtered summaries, live profile/order/refund updates, checkout/cancellation integration, source/account deletion, validation and endpoint/service authorization, read-only behavior, and consistent count/page/metrics during concurrent registrations and order creation against PostgreSQL.

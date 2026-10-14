@@ -14,6 +14,7 @@ import com.lowcortisol.backend.order.OrderException;
 import com.lowcortisol.backend.adminproduct.AdminProductException;
 import com.lowcortisol.backend.admincategory.AdminCategoryException;
 import com.lowcortisol.backend.adminorder.AdminOrderException;
+import com.lowcortisol.backend.admincustomer.AdminCustomerException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
@@ -30,6 +31,11 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(AdminCustomerException.class)
+    ResponseEntity<ApiError> adminCustomerError(AdminCustomerException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(AdminOrderException.class)
     ResponseEntity<ApiError> adminOrderError(AdminOrderException exception) {
         return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
