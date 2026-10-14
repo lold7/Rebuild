@@ -1,6 +1,9 @@
 spring:
   application:
     name: low-cortisol-backend
+  flyway:
+    # An address-branch database may already have V6 before the cart branch's V5 is merged.
+    out-of-order: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/bookstore}
     username: ${DB_USERNAME:bookstore}
