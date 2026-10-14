@@ -1,0 +1,219 @@
+# Customer and admin authentication backend
+
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild implements customer authentication and admin authentication/authorization as a JSON API: customer registration, login, logout, and 30-day Remember me, plus separate admin login and restricted admin account creation.
+
+## Run with Docker
+
+From the `backend` directory:
+
+```sh
+cp .env.example .env
+# Edit .env: set DB_PASSWORD and a random REMEMBER_ME_KEY (at least 32 characters).
+# Generate a key with: openssl rand -hex 32
+docker compose up --build
+```
+
+The API is available at `http://localhost:8080`. PostgreSQL is available at `localhost:5432`, with database `bookstore`. Flyway applies the schema automatically. Database data persists in the `bookstore_db` volume. Register customers through the API; first-admin setup is opt-in as described below.
+
+## Run locally
+
+Requires JDK 17–25 and Docker for PostgreSQL. The Maven wrapper downloads Maven automatically; no Maven installation is required.
+
+```sh
+cp .env.example .env
+# Set your secrets before continuing.
+docker compose up -d db
+set -a
+. ./.env
+set +a
+./mvnw spring-boot:run
+```
+
+Spring Boot does not load `.env` itself. Docker Compose reads it automatically; the local command exports its values explicitly. If using an existing PostgreSQL instance, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` instead.
+
+## API
+
+All request and response bodies use JSON. Authentication uses HTTP-only cookies, not bearer tokens. Every POST requires a valid CSRF token and the cookie from the CSRF request.
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| GET | `/api/auth/csrf` | Public. Returns `{ "headerName": "X-CSRF-TOKEN", "token": "..." }` and establishes a session. |
+| POST | `/api/auth/register` | Public. Creates a customer, returns `201` with public account fields. Does not log the customer in. |
+| POST | `/api/auth/login` | Public. Verifies credentials, rotates the session ID, returns `200` with public account fields. |
+| GET | `/api/auth/me` | Returns the authenticated customer's public account fields, or `401`. |
+| POST | `/api/auth/logout` | Shared customer/admin logout. Invalidates the current session, revokes the account's remembered-login tokens, clears cookies, returns `204`. |
+| POST | `/api/admin/auth/login` | Public. Accepts admin credentials only; rotates the session ID and returns `200` with public admin fields. |
+| GET | `/api/admin/auth/me` | Admin only. Returns the authenticated admin's public account fields. |
+| POST | `/api/admin/auth/register` | Admin only. Creates another admin, returns `201`, and keeps the creator logged in. |
+
+Registration body:
+
+```json
+{
+  "username": "Alice",
+  "email": "alice@example.com",
+  "password": "a-long-customer-password",
+  "phone": "0812345678"
+}
+```
+
+`phone` is optional. Username is required and limited to 100 characters; email is required, validated, trimmed, lowercased, and limited to 255 characters. Registration passwords must contain at least 8 characters and at most 72 UTF-8 bytes, matching BCrypt's input limit. Phone is limited to 20 characters. Unknown JSON fields (including `role`) are rejected; customer registration always assigns `customer` on the server.
+
+Login body:
+
+```json
+{
+  "email": "alice@example.com",
+  "password": "a-long-customer-password",
+  "rememberMe": true
+}
+```
+
+`rememberMe` defaults to `false`. Normal login uses a browser-session cookie and a 30-minute idle session timeout. Remember me additionally issues a 30-day cookie backed by rotating PostgreSQL tokens, allowing authentication after the browser session ends. Logging in without Remember me revokes previously remembered login tokens for that customer. Logout revokes all remembered-login tokens for the customer, while other active browser sessions remain active.
+
+Successful registration, login, and `/me` return:
+
+```json
+{
+  "userId": 1,
+  "username": "Alice",
+  "email": "alice@example.com",
+  "phone": "0812345678",
+  "role": "customer"
+}
+```
+
+Errors return `{ "code": "...", "message": "...", "fieldErrors": {} }`. Validation and malformed JSON return `400`; duplicate emails return `409`; invalid credentials and missing authentication return `401`; invalid CSRF tokens and forbidden access return `403`.
+
+## Admin authentication and authorization
+
+Admin login accepts `email` and `password` at `/api/admin/auth/login`:
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "your-admin-password"
+}
+```
+
+Only database accounts with role `admin` can authenticate at this endpoint. Customer credentials are rejected with the same `401` error as unknown emails and incorrect passwords. Admin accounts use the admin login endpoint; the customer login endpoint continues to accept customers only.
+
+Every `/api/admin/**` endpoint except POST `/api/admin/auth/login` requires `ROLE_ADMIN`. Unauthenticated requests receive `401`, while customers logged in with a password receive `403`. Remembered customers also remain blocked: Spring Security responds with `401` to prompt credential authentication when a remembered identity lacks the required role. Admin account creation also checks the role at the service layer. The database schema already contains the admin role, so existing databases need no new migration.
+
+Admin login uses a browser-session cookie with a 30-minute idle timeout. It does not support Remember me. Switching from a customer login to an admin login revokes the previous customer's remembered-login tokens and clears the remember-me cookie. Use POST `/api/auth/logout` to log out either role.
+
+An authenticated admin can create another admin at `/api/admin/auth/register`:
+
+```json
+{
+  "username": "Second Admin",
+  "email": "second-admin@example.com",
+  "password": "a-long-admin-password",
+  "confirmPassword": "a-long-admin-password",
+  "phone": "0812345678"
+}
+```
+
+Confirmation is required and must match the password. The remaining field limits match customer registration. The server assigns the admin role; request-supplied roles are rejected. Email uniqueness applies across both roles. Creating another admin does not switch the current session to the new account. Admin responses use the same public fields as customer responses, with `role: "admin"`.
+
+### Create the first admin
+
+Set these entries in the ignored `.env` file before the initial application start:
+
+```dotenv
+BOOTSTRAP_ADMIN_ENABLED=true
+BOOTSTRAP_ADMIN_USERNAME=admin
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=your-own-long-admin-password
+```
+
+Start with `docker compose up --build` (or export `.env` and use `./mvnw spring-boot:run`). The startup runner validates the fields and stores a BCrypt password hash. After the first successful start, set `BOOTSTRAP_ADMIN_ENABLED=false`, remove the bootstrap password, and restart. Subsequent admins are created by a logged-in admin through the protected endpoint.
+
+The setup is idempotent: an existing admin email is left unchanged, including its password. An email already owned by a customer causes startup to fail; it never promotes that customer. No default admin account or password is included in the schema.
+
+## Frontend integration
+
+Use `credentials: 'include'` for every request, including the initial CSRF fetch. Obtain a fresh CSRF token after login or logout because authentication invalidates the previous token. This example fetches a token before each POST:
+
+```javascript
+const API = 'http://localhost:8080';
+
+async function apiPost(path, body = {}) {
+  const csrfResponse = await fetch(`${API}/api/auth/csrf`, {
+    credentials: 'include'
+  });
+  if (!csrfResponse.ok) throw new Error('Unable to obtain CSRF token');
+  const csrf = await csrfResponse.json();
+
+  const response = await fetch(`${API}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      [csrf.headerName]: csrf.token
+    },
+    body: JSON.stringify(body)
+  });
+  const result = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new Error(result.message);
+  return result;
+}
+
+await apiPost('/api/auth/register', {
+  username: 'Alice', email: 'alice@example.com', password: 'a-long-customer-password'
+});
+await apiPost('/api/auth/login', {
+  email: 'alice@example.com', password: 'a-long-customer-password', rememberMe: true
+});
+const me = await fetch(`${API}/api/auth/me`, { credentials: 'include' });
+console.log(await me.json());
+await apiPost('/api/auth/logout');
+
+// With the first admin already created:
+await apiPost('/api/admin/auth/login', {
+  email: 'admin@example.com', password: 'your-admin-password'
+});
+await apiPost('/api/admin/auth/register', {
+  username: 'Second Admin', email: 'second-admin@example.com',
+  password: 'a-long-admin-password', confirmPassword: 'a-long-admin-password'
+});
+await apiPost('/api/auth/logout');
+```
+
+## Database
+
+`src/main/resources/db/migration/V1__customer_authentication.sql` creates:
+
+- `users`: identity primary key, unique normalized email, BCrypt hash, contact information, role, and timestamps.
+- `persistent_logins`: persistent-login series, rotating token, last-use timestamp, and a foreign key to the customer's email.
+- `spring_session` and `spring_session_attributes`: database-backed sessions, expiry indexes, and cascading attribute cleanup.
+
+All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
+
+## Configuration
+
+| Variable | Default / requirement |
+| --- | --- |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/bookstore` |
+| `DB_USERNAME` | `bookstore` |
+| `DB_PASSWORD` | Required |
+| `REMEMBER_ME_KEY` | Required stable secret, at least 32 characters |
+| `COOKIE_SECURE` | `false` for local HTTP; set `true` when serving over HTTPS |
+| `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` |
+| `PORT` | `8080` for local runs |
+| `BOOTSTRAP_ADMIN_ENABLED` | `false`; enable explicitly to provision the initial admin |
+| `BOOTSTRAP_ADMIN_USERNAME` | `admin` |
+| `BOOTSTRAP_ADMIN_EMAIL` | Required when bootstrap is enabled |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Required when bootstrap is enabled; same password limits as registration |
+
+Cookies use SameSite=Lax; deploy the frontend and API on the same site. CORS allows only the configured origins and includes credentials. Keep the remember-me key stable across restarts. PostgreSQL session storage avoids losing active sessions when the application restarts.
+
+## Verify
+
+With Docker running:
+
+```sh
+./mvnw verify
+```
+
+Tests start an isolated PostgreSQL 17 container and the real HTTP server. They verify customer and admin password authentication, email uniqueness across roles, validation, role injection rejection, database session persistence, session ID rotation, CSRF enforcement, CORS, remembered login, expired/tampered cookies, and logout revocation. Admin tests also cover restricted account creation, rejection of guest/customer access, role separation, service-layer authorization, switching accounts, and idempotent bootstrap that cannot promote a customer. Test containers are removed automatically; tests do not use the application database.

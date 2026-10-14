@@ -1,3 +1,10 @@
 node_modules/
 CLAUDE.md
 .env
+target/
+.m2/
+.cache/
+.env.*
+!.env.example
+.idea/
+*.iml
