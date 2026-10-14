@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, and address books as JSON APIs.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, and saved payment method metadata as JSON APIs.
 
 ## Run with Docker
 
@@ -76,6 +76,11 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | POST | `/api/cart/update` | Customer only. Replaces an owned cart line's quantity. |
 | POST | `/api/cart/remove` | Customer only. Removes an owned cart line. |
 | POST | `/api/cart/clear` | Customer only. Clears the customer's cart. |
+| GET | `/api/account/payment-methods` | Customer only. Lists saved cards, optionally filtered by `type=CREDIT` or `type=DEBIT`. |
+| GET | `/api/account/payment-methods/{id}` | Customer only. Returns an owned saved card's display metadata. |
+| POST | `/api/account/payment-methods/add` | Customer only. Saves masked card metadata; the first active card becomes the default. |
+| POST | `/api/account/payment-methods/delete/{id}` | Customer only. Removes an owned card, preserving the last active card and promoting a remaining active default. |
+| POST | `/api/account/payment-methods/default/{id}` | Customer only. Selects an owned, unexpired card as the default. |
 
 Registration body:
 
@@ -318,6 +323,77 @@ await apiPost('/api/cart/clear');
 
 PostgreSQL prevents duplicate customer/book/format lines, including products without a format. Account-row locks serialize each customer's writes, and shared product/category locks keep stock and visibility stable during a mutation. Deleting a user or product cascades to its cart entries. No additional environment setting is required; Flyway applies the new schema automatically.
 
+## Saved payment methods
+
+The original payment page contains placeholder saved cards and controls for saving, removing, and choosing a default. These APIs persist the corresponding credit/debit card display metadata for authenticated customers. Account ownership comes from the session; all mutations require CSRF. Guests and admins cannot access customer payment methods.
+
+POST `/api/account/payment-methods/add`:
+
+```json
+{
+  "type": "CREDIT",
+  "brand": "visa",
+  "cardholderName": "Alice Example",
+  "last4": "4242",
+  "expiryMonth": 12,
+  "expiryYear": 2030,
+  "currency": "USD",
+  "isDefault": false
+}
+```
+
+Returns `201` and a `Location` header pointing to `/api/account/payment-methods/{paymentMethodId}`. The response includes `paymentMethodId`, the submitted normalized display fields, `isDefault`, `expired`, and `createdAt`. `last4` must be exactly four digits and is a string to preserve leading zeros. Cardholder names are required and limited to 200 characters. Types are `CREDIT` or `DEBIT`; brands are `visa`, `mastercard`, `amex`, `discover`, `jcb`, `unionpay`, `diners`, or `other`. Type/brand matching ignores case and surrounding whitespace. Currency defaults to `USD`, accepts ISO currency codes, and is normalized to uppercase. Expiry month/year must be integers in 1–12 and 2000–9999, respectively, and the card must be unexpired when saved.
+
+The table and API store display metadata only. Full card numbers, CVV/CVC, and processor tokens are excluded from the schema and request contract; submitting those extra fields returns `400`. This feature manages account preferences. Tokenization, verification of card ownership, payment charging, checkout integration, wallets, and bank accounts require a separate payment-provider integration. The existing frontend remains unchanged.
+
+GET `/api/account/payment-methods` returns:
+
+```json
+{
+  "paymentMethods": [
+    {
+      "paymentMethodId": 1,
+      "type": "CREDIT",
+      "brand": "visa",
+      "cardholderName": "Alice Example",
+      "last4": "4242",
+      "expiryMonth": 12,
+      "expiryYear": 2030,
+      "currency": "USD",
+      "isDefault": true,
+      "expired": false,
+      "createdAt": "2026-10-15T00:00:00Z"
+    }
+  ],
+  "totalMethods": 1,
+  "defaultPaymentMethodId": 1
+}
+```
+
+The default appears first, followed by newest cards. Optional `type=CREDIT` or `type=DEBIT` filtering is case insensitive; omit `type` to list all cards. `totalMethods` counts the filtered results, while `defaultPaymentMethodId` identifies the account's default even when it is outside the filter. A new account has an empty list and a null default. Cards remain active through the end of their expiry month in UTC. Reads report expired cards without deleting them; an existing default can expire and must then be replaced. Adding an active card when the current default is expired automatically makes the new card the default.
+
+POST `/api/account/payment-methods/default/{id}` returns the updated list and selects an owned, unexpired card. Selecting the current default is idempotent. POST `/api/account/payment-methods/delete/{id}` returns the updated list, retaining an unaffected active default or promoting the newest remaining active card. Following the original payment page's last-active-card rule, deleting the last unexpired card returns `409` with `LAST_ACTIVE_PAYMENT_METHOD`; add a replacement first. Expired cards can always be removed, including the final expired card.
+
+Missing and foreign IDs both return `404` with `PAYMENT_METHOD_NOT_FOUND`. Malformed or nonpositive IDs, unsupported types/brands/currencies, and invalid filters return `400` with `INVALID_PAYMENT_METHOD_REQUEST`. Field validation returns `VALIDATION_ERROR`. Saving or selecting an expired card returns `400` with `PAYMENT_METHOD_EXPIRED`. Ownership and expiry are checked before changing defaults, and failed mutations preserve existing entries.
+
+Using the `apiPost` helper below for a logged-in customer:
+
+```javascript
+const method = await apiPost('/api/account/payment-methods/add', {
+  type: 'CREDIT', brand: 'visa', cardholderName: 'Alice Example',
+  last4: '4242', expiryMonth: 12, expiryYear: 2030
+});
+await apiPost(`/api/account/payment-methods/default/${method.paymentMethodId}`);
+const response = await fetch(`${API}/api/account/payment-methods?type=CREDIT`, {
+  credentials: 'include'
+});
+console.log(await response.json());
+// Add another active card before deleting the last active card.
+await apiPost(`/api/account/payment-methods/delete/${method.paymentMethodId}`);
+```
+
+Mutations lock the customer row and run in a transaction. A PostgreSQL partial unique index permits at most one default per customer. Concurrent removals preserve the last active card. Saved entries reference the stable user ID, survive logout and email/password changes, and cascade on account deletion. Matching last four digits do not uniquely identify a card, so distinct saved entries are not deduplicated by those digits. No additional environment variables are required.
+
 ## Admin authentication and authorization
 
 Admin login accepts `email` and `password` at `/api/admin/auth/login`:
@@ -536,7 +612,9 @@ await apiPost('/api/auth/logout');
 
 `V6__address_book.sql` adds `addresses`, with a cascading user foreign key, field limits/defaults, an index for newest addresses per owner, and a partial unique index for one default per customer. Flyway applies this migration automatically on startup.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases still apply V1–V6 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V7__saved_payment_methods.sql` adds `payment_methods`: a cascading user foreign key, masked display fields, validated card types/brands/expiry ranges, default USD currency, creation timestamp, a newest-per-owner index, and a partial unique index for one default per customer. Flyway applies it to existing databases on startup.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V7 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -589,3 +667,5 @@ Address tests verify empty books, field defaults, default-first ordering, automa
 Cart tests verify empty totals, matching-format merging, separate formats, default/scalar/absent formats, updates/removals/clearing, exact current-price totals, limits, aggregate stock checks, stale availability, ownership and role protection, input/CSRF validation, persistence, cascading cleanup, and concurrent requests that cannot create duplicate lines or exceed a customer's stock allowance.
 
 The merge regression test starts with an address-branch database at V6 without V5, verifies the startup failure without out-of-order migration, then verifies automatic cart migration, preservation of existing customer/address data, and cart/address operations and error responses in the same customer session.
+
+Payment method tests verify empty lists, normalized masked metadata, type filtering, default ordering/selection, expiry-month boundaries, expired default replacement, removal/promotion and last-active-card protection, ownership and role restrictions, CSRF, raw-card-field rejection, service validation/authorization, database constraints, persistence across account changes, cascading deletion, and concurrent additions/default selections/removals against PostgreSQL.
