@@ -108,42 +108,40 @@
   </main>
 </div>
 
-<!-- Order Detail Modal -->
-@if (selectedOrder) {
-  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">Order #{{ selectedOrder.order_id }} Details</h5>
-          <button type="button" class="btn-close" (click)="closeOrderModal()"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-1"><strong>Customer:</strong> {{ selectedOrder.username || 'Customer' }}</p>
-          <p class="mb-1"><strong>Date:</strong> {{ selectedOrder.created_at | date:'medium' }}</p>
-          <p class="mb-1"><strong>Total:</strong> ${{ (+selectedOrder.total_price).toFixed(2) }}</p>
-          <p class="mb-3"><strong>Payment:</strong> {{ selectedOrder.payment_method }}</p>
+<!-- Order Detail Dialog (Angular Material MatDialog) -->
+<ng-template #orderDetailDialog>
+  @if (selectedOrder) {
+    <div class="modal-content border-0">
+      <div class="modal-header d-flex justify-content-between align-items-center p-3 border-bottom">
+        <h5 class="modal-title fw-bold m-0 fs-5">Order #{{ selectedOrder.order_id }} Details</h5>
+        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none" (click)="closeOrderModal()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="mb-1"><strong>Customer:</strong> {{ selectedOrder.username || 'Customer' }}</p>
+        <p class="mb-1"><strong>Date:</strong> {{ selectedOrder.created_at | date:'medium' }}</p>
+        <p class="mb-1"><strong>Total:</strong> ${{ (+selectedOrder.total_price).toFixed(2) }}</p>
+        <p class="mb-3"><strong>Payment:</strong> {{ selectedOrder.payment_method }}</p>
 
-          <h6 class="fw-bold border-top pt-3">Items:</h6>
-          @if (selectedOrder.items && selectedOrder.items.length > 0) {
-            <ul class="list-group list-group-flush">
-              @for (item of selectedOrder.items; track item.order_item_id) {
-                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                  <div>
-                    <span class="fw-semibold">{{ item.product_name }}</span>
-                    <br><small class="text-muted">Qty: {{ item.quantity }}</small>
-                  </div>
-                  <span class="fw-bold">${{ (+item.unit_price * item.quantity).toFixed(2) }}</span>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="text-muted small">No items breakdown available.</p>
-          }
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary rounded-pill px-4" (click)="closeOrderModal()">Close</button>
-        </div>
+        <h6 class="fw-bold border-top pt-3">Items:</h6>
+        @if (selectedOrder.items && selectedOrder.items.length > 0) {
+          <ul class="list-group list-group-flush">
+            @for (item of selectedOrder.items; track item.order_item_id) {
+              <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <div>
+                  <span class="fw-semibold">{{ item.product_name }}</span>
+                  <br><small class="text-muted">Qty: {{ item.quantity }}</small>
+                </div>
+                <span class="fw-bold">${{ (+item.unit_price * item.quantity).toFixed(2) }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="text-muted small">No items breakdown available.</p>
+        }
+      </div>
+      <div class="modal-footer d-flex justify-content-end p-3 border-top">
+        <button type="button" class="btn btn-secondary rounded-pill px-4" (click)="closeOrderModal()">Close</button>
       </div>
     </div>
-  </div>
-}
+  }
+</ng-template>

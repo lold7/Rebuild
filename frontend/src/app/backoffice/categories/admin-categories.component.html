@@ -78,58 +78,52 @@
   </main>
 </div>
 
-<!-- Add Category Modal -->
-@if (showAddModal) {
-  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">Add New Category</h5>
-          <button type="button" class="btn-close" (click)="closeAddModal()"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-medium">Category Name</label>
-            <input type="text" [(ngModel)]="newCategory.category_name" class="form-control" placeholder="Enter category name" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-medium">Category Image URL</label>
-            <input type="text" [(ngModel)]="newCategory.category_image" class="form-control" placeholder="Enter image URL (optional)">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-white border" (click)="closeAddModal()">Cancel</button>
-          <button type="button" (click)="submitAddCategory()" class="btn btn-primary">Add Category</button>
-        </div>
+<!-- Add Category Dialog (Angular Material MatDialog) -->
+<ng-template #addCategoryDialog>
+  <div class="modal-content border-0">
+    <div class="modal-header d-flex justify-content-between align-items-center p-3 border-bottom">
+      <h5 class="modal-title fw-bold m-0 fs-5">Add New Category</h5>
+      <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body p-4">
+      <div class="mb-3">
+        <label class="form-label fw-medium">Category Name</label>
+        <input type="text" [(ngModel)]="newCategory.category_name" class="form-control" placeholder="Enter category name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-medium">Category Image URL</label>
+        <input type="text" [(ngModel)]="newCategory.category_image" class="form-control" placeholder="Enter image URL (optional)">
       </div>
     </div>
+    <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
+      <button type="button" class="btn btn-white border" (click)="closeAddModal()">Cancel</button>
+      <button type="button" (click)="submitAddCategory()" class="btn btn-primary">Add Category</button>
+    </div>
   </div>
-}
+</ng-template>
 
-<!-- Edit Category Modal -->
-@if (showEditModal && editingCategory) {
-  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">Edit Category</h5>
-          <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+<!-- Edit Category Dialog (Angular Material MatDialog) -->
+<ng-template #editCategoryDialog>
+  @if (editingCategory) {
+    <div class="modal-content border-0">
+      <div class="modal-header d-flex justify-content-between align-items-center p-3 border-bottom">
+        <h5 class="modal-title fw-bold m-0 fs-5">Edit Category</h5>
+        <button type="button" class="btn-link text-muted p-0 text-decoration-none btn btn-sm" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-medium">Category Name</label>
+          <input type="text" [(ngModel)]="editingCategory.category_name" class="form-control" required>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-medium">Category Name</label>
-            <input type="text" [(ngModel)]="editingCategory.category_name" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-medium">Category Image URL</label>
-            <input type="text" [(ngModel)]="editingCategory.category_image" class="form-control">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-white border" (click)="closeEditModal()">Cancel</button>
-          <button type="button" (click)="submitEditCategory()" class="btn btn-primary">Save Changes</button>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Category Image URL</label>
+          <input type="text" [(ngModel)]="editingCategory.category_image" class="form-control">
         </div>
       </div>
+      <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
+        <button type="button" class="btn btn-white border" (click)="closeEditModal()">Cancel</button>
+        <button type="button" (click)="submitEditCategory()" class="btn btn-primary">Save Changes</button>
+      </div>
     </div>
-  </div>
-}
+  }
+</ng-template>
