@@ -8,7 +8,11 @@ import com.lowcortisol.backend.cart.CartResponse;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -38,6 +42,36 @@ public class OrderRepository {
 
     Optional<OrderHeader> owned(long userId, long id) {
         return jdbc.query("SELECT * FROM orders WHERE user_id = ? AND order_id = ?", headers, userId, id).stream().findFirst();
+    }
+
+    long historyCount(long userId, String status) {
+        String sql = "SELECT count(*) FROM orders WHERE user_id = ?";
+        return status == null ? jdbc.queryForObject(sql, Long.class, userId)
+            : jdbc.queryForObject(sql + " AND status = ?", Long.class, userId, status);
+    }
+
+    List<OrderResponse> history(long userId, int page, int pageSize, String status) {
+        String sql = "SELECT * FROM orders WHERE user_id = ?";
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(userId);
+        if (status != null) {
+            sql += " AND status = ?";
+            parameters.add(status);
+        }
+        sql += " ORDER BY created_at DESC, order_id DESC LIMIT ? OFFSET ?";
+        parameters.add(pageSize);
+        parameters.add((long) (page - 1) * pageSize);
+        var pageHeaders = jdbc.query(sql, headers, parameters.toArray());
+        if (pageHeaders.isEmpty()) return List.of();
+
+        // Fetch all page items together rather than issuing one query per order.
+        String placeholders = String.join(",", Collections.nCopies(pageHeaders.size(), "?"));
+        var rows = jdbc.query("SELECT * FROM order_items WHERE order_id IN (" + placeholders + ") ORDER BY order_id, order_item_id",
+            (rs, row) -> Map.entry(rs.getLong("order_id"), items.mapRow(rs, row)),
+            pageHeaders.stream().map(OrderHeader::id).toArray());
+        Map<Long, List<OrderItemResponse>> grouped = new HashMap<>();
+        rows.forEach(row -> grouped.computeIfAbsent(row.getKey(), ignored -> new ArrayList<>()).add(row.getValue()));
+        return pageHeaders.stream().map(header -> response(header, grouped.getOrDefault(header.id(), List.of()))).toList();
     }
 
     long insert(long userId, Long addressId, Long savedPaymentMethodId, String key, String fingerprint,
@@ -76,6 +110,10 @@ public class OrderRepository {
 
     OrderResponse response(OrderHeader header) {
         List<OrderItemResponse> orderItems = jdbc.query("SELECT * FROM order_items WHERE order_id = ? ORDER BY order_item_id", items, header.id());
+        return response(header, orderItems);
+    }
+
+    private OrderResponse response(OrderHeader header, List<OrderItemResponse> orderItems) {
         return new OrderResponse(header.id(), header.status(), header.paymentStatus(), header.paymentMethod(), header.currency(),
             header.totalItems(), header.totalQuantity(), header.totalPrice(), header.address(), header.payment(), orderItems, header.createdAt());
     }
