@@ -7,7 +7,8 @@ RUN mvn -B -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 app
+RUN useradd --system --user-group --uid 10001 app
+RUN install -d -o app -g app /app/uploads/product-images
 COPY --from=build /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
 USER app
 EXPOSE 8080

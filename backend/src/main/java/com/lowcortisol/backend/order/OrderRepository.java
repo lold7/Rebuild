@@ -101,7 +101,7 @@ public class OrderRepository {
 
     void deductStock(long productId, long quantity) {
         if (jdbc.update("""
-            UPDATE products SET product_quantity = product_quantity - ?, updated_at = CURRENT_TIMESTAMP
+            UPDATE products SET product_quantity = product_quantity - ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
             WHERE product_id = ? AND product_quantity >= ?
             """, quantity, productId, quantity) != 1) {
             throw OrderException.conflict("INSUFFICIENT_STOCK", "There is not enough stock to place this order");
