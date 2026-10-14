@@ -6,6 +6,7 @@ import com.lowcortisol.backend.auth.IncorrectCurrentPasswordException;
 import com.lowcortisol.backend.catalog.CatalogNotFoundException;
 import com.lowcortisol.backend.catalog.InvalidCatalogRequestException;
 import com.lowcortisol.backend.wishlist.InvalidWishlistRequestException;
+import com.lowcortisol.backend.cart.CartException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
@@ -19,6 +20,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(CartException.class)
+    ResponseEntity<ApiError> cartError(CartException exception) {
+        return ResponseEntity.status(exception.status()).body(new ApiError(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidWishlistRequestException.class)
     ResponseEntity<ApiError> invalidWishlistRequest(InvalidWishlistRequestException exception) {
         return ResponseEntity.badRequest().body(new ApiError("INVALID_WISHLIST_REQUEST", exception.getMessage()));

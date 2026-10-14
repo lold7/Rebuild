@@ -1,26 +1,26 @@
 package com.lowcortisol.backend.wishlist;
 
 import com.lowcortisol.backend.catalog.ProductRowMapper;
+import com.lowcortisol.backend.auth.CustomerAccountRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class WishlistRepository {
     private final JdbcTemplate jdbc;
     private final ProductRowMapper products;
+    private final CustomerAccountRepository customers;
 
-    public WishlistRepository(JdbcTemplate jdbc, ProductRowMapper products) {
+    public WishlistRepository(JdbcTemplate jdbc, ProductRowMapper products, CustomerAccountRepository customers) {
         this.jdbc = jdbc;
         this.products = products;
+        this.customers = customers;
     }
 
     long customerId(String email, boolean lock) {
-        return jdbc.query("SELECT user_id FROM users WHERE email = ? AND role = 'customer'" + (lock ? " FOR UPDATE" : ""),
-            (rs, row) -> rs.getLong("user_id"), email).stream().findFirst()
-            .orElseThrow(() -> new UsernameNotFoundException("Customer does not exist"));
+        return customers.customerId(email, lock);
     }
 
     List<WishlistItem> list(long userId) {
