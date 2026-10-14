@@ -1,6 +1,6 @@
 # Bookstore backend
 
-Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, admin order management, admin customer reporting, and the admin dashboard.
+Spring Boot 3.5.16, Spring Security, Spring Session JDBC, and PostgreSQL. This rebuild provides a public product catalog and search, customer authentication, admin authentication/authorization, profile management, password recovery, customer wishlists, persistent shopping carts, address books, saved payment method metadata, checkout, order creation, customer order history, admin product/inventory management, admin category management, admin order management, admin customer reporting, the admin dashboard, and public FAQ retrieval.
 
 ## Run with Docker
 
@@ -93,6 +93,8 @@ All request and response bodies use JSON. Authentication uses HTTP-only cookies,
 | GET | `/api/admin/customers/summary` | Admin only. Returns customer/order counts and monetary totals for the same optional `q`/`activity` filters. |
 | GET | `/api/admin/customers/{id}` | Admin only. Retrieves one customer's contacts and lifetime order/spending metrics. |
 | GET | `/api/admin/dashboard` | Admin only. Returns store totals, stock alerts, the 10 newest customer orders, and daily sales cohorts; accepts `days=1`–`366` (default `30`). |
+| GET | `/api/faqs` | Public. Lists visible FAQs in display order; accepts optional question/answer search `q`. |
+| GET | `/api/faqs/{id}` | Public. Retrieves one visible FAQ. |
 | GET | `/api/admin/products`, `/api/admin/inventory` | Admin only. Lists all products, including hidden ones, with paging, search, category, visibility, and stock filters. |
 | GET | `/api/admin/products/{id}` | Admin only. Retrieves product metadata, visibility, stock, and current version. |
 | POST | `/api/admin/products` | Admin only. Creates a product with optional initial stock, images, attributes, and visibility. |
@@ -194,6 +196,33 @@ Categories accept numeric IDs or stored slugs. The original five demo categories
 The startup import runs only if both catalog tables are empty. It uses a transaction and PostgreSQL advisory lock so multiple instances cannot import simultaneously. It preserves an existing or partially populated catalog and does not import customer accounts, credentials, or orders. The identity sequences advance past the imported IDs, allowing later products/categories to use generated IDs.
 
 Demo data is adapted from [the original catalog SQL](https://github.com/lold7/front-end-low-cortisol/blob/main/sql/init.sql). Image fields preserve the original filenames; image binaries are not included in this backend. Serve the corresponding assets through the frontend or an image host.
+
+## FAQ retrieval
+
+GET `/api/faqs` returns an unpaged JSON array for the original FAQ accordion. An empty FAQ table or no visible matches returns `[]`. Guests, customers, and admins can retrieve FAQs without a session or CSRF token. Only GET is public; existing authorization and CSRF rules still protect other methods.
+
+Each entry and GET `/api/faqs/{id}` contain exactly `faqId`, `question`, `answer`, and `sortOrder`. Rows are sorted by `sortOrder` ascending, then FAQ ID ascending for ties. Hidden FAQs are excluded from both listing/search and individual lookup. Hidden and missing IDs return the same `404`/`FAQ_NOT_FOUND` response. Invalid/nonpositive/out-of-range IDs return `400`/`INVALID_FAQ_REQUEST`.
+
+Example response:
+
+```json
+[
+  { "faqId": 1, "question": "Where can I see my orders?", "answer": "Sign in and open Order History.", "sortOrder": 10 }
+]
+```
+
+GET `/api/faqs?q=shipping` searches question and answer text using case-insensitive literal substring matching. Surrounding query whitespace is ignored; missing/blank `q` returns the regular list. `%`, `_`, `!`, and SQL syntax are literal text, and all query values are parameterized. Queries longer than 255 characters return `400`/`INVALID_FAQ_REQUEST`. Reads do not modify visibility, display order, or content. Responses return stored text as JSON strings for normal text rendering.
+
+Flyway V15 creates an empty `faqs` table. Store operators can populate their FAQ content through PostgreSQL, for example:
+
+```sql
+INSERT INTO faqs (question, answer, sort_order)
+VALUES ('Where can I see my orders?', 'Sign in and open Order History.', 10);
+```
+
+Questions must be nonblank and at most 500 characters; answers must be nonblank and at most 10,000 characters. `sort_order` is a nonnegative integer, defaulting to zero; `is_visible` defaults to true. Public responses omit visibility and storage timestamps. The original frontend needs to map `faq_id` and `sort_order` to the camelCase `faqId` and `sortOrder` fields; question/answer and the array shape retain their contracts.
+
+For demonstrations, set `FAQ_DEMO_ENABLED=true` in `.env` and restart the backend to import five sample FAQs from the original order-history accordion. It defaults to false, independently of `CATALOG_DEMO_ENABLED`, and is passed through Docker Compose. Sample shipping, tracking, and return statements are frontend copy; they do not configure those operational features. The import runs only when the entire FAQ table is empty, including hidden rows. A transaction and PostgreSQL advisory lock prevent partial imports and duplicate concurrent startup imports. Existing/custom FAQ content is preserved on restart. Sample text is stored separately in `db/demo/faqs.sql`, outside the schema migration.
 
 ## Wishlist management
 
@@ -989,7 +1018,9 @@ await apiPost('/api/auth/logout');
 
 `V14__admin_dashboard.sql` adds an index on order creation dates in UTC and the live `admin_dashboard_daily_sales` view. The view aggregates customer order headers by UTC creation date, with status counts, non-cancelled values, and currently paid totals. Existing data and migration checksums are preserved. The dashboard also reuses the existing customer and inventory summary services inside one read-only transaction.
 
-Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V14 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
+`V15__faq_retrieval.sql` creates `faqs` with generated IDs, constrained question/answer text, nonnegative display order, visibility, and creation/update timestamps. A partial `(sort_order, faq_id)` index supports ordered visible retrieval. Existing customer/catalog/order data and earlier migration checksums remain unchanged. Optional FAQ samples are imported separately only when explicitly enabled.
+
+Flyway's `out-of-order` setting allows an existing address-branch database that already applied V6 to apply the merged cart migration V5. Fresh databases apply V1–V15 in order. Original migration files and checksums remain unchanged; existing accounts and addresses are retained without resetting the database.
 
 All account queries are parameterized. Registration relies on PostgreSQL's unique constraint, including concurrent registration attempts. Passwords and password hashes are excluded from API responses. Customer and admin accounts share `users`, with separate role-filtered authentication providers and role checks on protected endpoints.
 
@@ -1005,6 +1036,7 @@ All account queries are parameterized. Registration relies on PostgreSQL's uniqu
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | `8080` for local runs |
 | `CATALOG_DEMO_ENABLED` | `false`; enable to import the original catalog when both catalog tables are empty |
+| `FAQ_DEMO_ENABLED` | `false`; enable to import five original frontend sample FAQs when the FAQ table is empty |
 | `PRODUCT_IMAGE_DIRECTORY` | `./uploads/product-images` for local runs; Docker Compose mounts persistent image storage at `/app/uploads/product-images` |
 | `BOOTSTRAP_ADMIN_ENABLED` | `false`; enable explicitly to provision the initial admin |
 | `BOOTSTRAP_ADMIN_USERNAME` | `admin` |
@@ -1059,3 +1091,5 @@ Admin order tests verify cross-customer paging/search/status filters, complete h
 Admin customer reporting tests verify empty/zero-order reports, exclusion of admins, safe contact fields, status/payment-aware totals without item duplication, exact decimals and large sums, bounded paging/tie ordering, search/activity/sort filters, filtered summaries, live profile/order/refund updates, checkout/cancellation integration, source/account deletion, validation and endpoint/service authorization, read-only behavior, and consistent count/page/metrics during concurrent registrations and order creation against PostgreSQL.
 
 Admin dashboard tests verify empty stores, lifetime metrics matching customer reporting, paid/cancelled/refunded revenue rules, hidden catalog and stock alerts, bounded recent orders with date/ID ordering and safe fields, UTC day boundaries, zero-filled bounded trends, exact monetary totals without item duplication, live checkout/cancellation/refund/deletion updates, validation and endpoint/service authorization, read-only behavior, generic storage errors/recovery, and one consistent snapshot across all sections during concurrent customer/order/inventory changes against PostgreSQL.
+
+FAQ tests verify public list/detail contracts for guests/customers/admins, empty and hidden content, display-order/ID sorting, live edits/deletion, question/answer and Unicode search, literal wildcard/SQL text, invalid IDs/search lengths, preserved write authorization/CSRF, allowed/rejected CORS origins, database content constraints, existing/hidden content preservation during demo import, concurrent startup imports, and failed import rollback/retry against PostgreSQL.

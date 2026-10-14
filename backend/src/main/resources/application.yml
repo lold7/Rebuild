@@ -41,6 +41,8 @@ server:
         secure: ${COOKIE_SECURE:false}
         same-site: lax
 app:
+  faq:
+    demo-enabled: ${FAQ_DEMO_ENABLED:false}
   catalog:
     demo-enabled: ${CATALOG_DEMO_ENABLED:false}
     image-directory: ${PRODUCT_IMAGE_DIRECTORY:./uploads/product-images}
