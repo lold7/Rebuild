@@ -1,8 +1,5 @@
 package com.lowcortisol.backend.catalog;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -21,20 +18,9 @@ public class ProductRepository {
     private final JdbcTemplate jdbc;
     private final RowMapper<ProductResponse> mapper;
 
-    public ProductRepository(JdbcTemplate jdbc, ObjectMapper json) {
+    public ProductRepository(JdbcTemplate jdbc, ProductRowMapper mapper) {
         this.jdbc = jdbc;
-        this.mapper = (rs, row) -> {
-            int quantity = rs.getInt("product_quantity");
-            try {
-                return new ProductResponse(rs.getLong("product_id"), rs.getLong("category_id"),
-                    rs.getString("category_name"), rs.getString("category_slug"), rs.getString("product_name"),
-                    rs.getString("product_description"), rs.getBigDecimal("product_price"),
-                    json.readTree(rs.getString("product_images")), json.readTree(rs.getString("product_attributes")),
-                    quantity, quantity > 0, Math.min(10, quantity), rs.getObject("created_at", java.time.OffsetDateTime.class));
-            } catch (JsonProcessingException exception) {
-                throw new SQLException("Invalid product JSON in database", exception);
-            }
-        };
+        this.mapper = mapper;
     }
 
     Optional<ProductResponse> findVisible(long id) {
