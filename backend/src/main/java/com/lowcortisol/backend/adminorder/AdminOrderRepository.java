@@ -10,9 +10,9 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -23,6 +23,12 @@ import org.springframework.stereotype.Repository;
 public class AdminOrderRepository {
     private static final String SELECT = "SELECT o.*, u.username, u.email, u.phone ";
     private static final String FROM = "FROM orders o JOIN users u ON u.user_id = o.user_id WHERE TRUE ";
+    private static final String FILTERED_FROM = FROM + """
+        AND (? OR o.status = ?)
+        AND (? OR o.user_id = ?)
+        AND (? OR CAST(o.order_id AS text) ILIKE ? ESCAPE '!'
+            OR u.username ILIKE ? ESCAPE '!' OR u.email ILIKE ? ESCAPE '!')
+        """;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final OrderRepository orderItems;
@@ -46,22 +52,20 @@ public class AdminOrderRepository {
 
     Optional<Header> get(long id, boolean lock) {
         // A non-key lock serializes status changes while allowing foreign-key maintenance on order items.
-        return jdbc.query(SELECT + FROM + " AND o.order_id = ?" + (lock ? " FOR NO KEY UPDATE OF o" : ""), headers, id).stream().findFirst();
+        if (lock) {
+            return jdbc.query(SELECT + FROM + " AND o.order_id = ? FOR NO KEY UPDATE OF o", headers, id).stream().findFirst();
+        }
+        return jdbc.query(SELECT + FROM + " AND o.order_id = ?", headers, id).stream().findFirst();
     }
 
     AdminOrderPage page(int page, int size, String status, String query, Long customerId) {
-        StringBuilder filter = new StringBuilder(FROM);
-        List<Object> args = new ArrayList<>();
-        if (status != null) { filter.append(" AND o.status = ?"); args.add(status); }
-        if (customerId != null) { filter.append(" AND o.user_id = ?"); args.add(customerId); }
-        if (!query.isEmpty()) {
-            String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-            filter.append(" AND (CAST(o.order_id AS text) ILIKE ? ESCAPE '!' OR u.username ILIKE ? ESCAPE '!' OR u.email ILIKE ? ESCAPE '!')");
-            args.addAll(List.of(pattern, pattern, pattern));
-        }
-        long count = jdbc.queryForObject("SELECT count(*) " + filter, Long.class, args.toArray());
-        args.add(size); args.add((long) (page - 1) * size);
-        var pageHeaders = jdbc.query(SELECT + filter + " ORDER BY o.created_at DESC, o.order_id DESC LIMIT ? OFFSET ?", headers, args.toArray());
+        String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        long count = Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) " + FILTERED_FROM, Long.class,
+            status == null, status, customerId == null, customerId, query.isEmpty(), pattern, pattern, pattern),
+            "Order count must not be null");
+        var pageHeaders = jdbc.query(SELECT + FILTERED_FROM + " ORDER BY o.created_at DESC, o.order_id DESC LIMIT ? OFFSET ?",
+            headers, status == null, status, customerId == null, customerId, query.isEmpty(), pattern, pattern, pattern,
+            size, (long) (page - 1) * size);
         Map<Long, List<OrderItemResponse>> items = orderItems.itemsForOrders(pageHeaders.stream().map(Header::id).toList());
         var result = pageHeaders.stream().map(header -> response(header, items.getOrDefault(header.id(), List.of()))).toList();
         return new AdminOrderPage(result, page, size, count, pages(count, size));
@@ -138,7 +142,8 @@ public class AdminOrderRepository {
     }
 
     OrderStatusChangePage history(long id, int page, int size) {
-        long count = jdbc.queryForObject("SELECT count(*) FROM order_status_changes WHERE order_id = ?", Long.class, id);
+        long count = Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM order_status_changes WHERE order_id = ?",
+            Long.class, id), "Order status change count must not be null");
         var items = jdbc.query("""
             SELECT * FROM order_status_changes WHERE order_id = ? ORDER BY created_at DESC, change_id DESC LIMIT ? OFFSET ?
             """, changes, id, size, (long) (page - 1) * size);

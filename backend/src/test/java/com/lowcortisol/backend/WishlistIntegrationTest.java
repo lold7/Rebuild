@@ -80,12 +80,19 @@ class WishlistIntegrationTest {
     }
 
     @Test
-    void addRemoveAndRepeatedRequestsAreIdempotentAndReturnProductDetails() throws Exception {
+    void repeatedAddsKeepTheOriginalWishlistEntry() throws Exception {
         Browser customer = customer("alice@example.com");
         assertThat(action(customer.post("add", 1))).isEqualTo("added");
         long id = customer.ok("/api/account/wishlist").get("items").get(0).get("wishlistId").asLong();
         assertThat(action(customer.post("add", 1))).isEqualTo("unchanged");
         assertThat(customer.ok("/api/account/wishlist").get("items").get(0).get("wishlistId").asLong()).isEqualTo(id);
+        assertThat(customer.ok("/api/account/wishlist/1").get("wishlisted").asBoolean()).isTrue();
+    }
+
+    @Test
+    void wishlistReturnsNewestProductsWithDetailsAndAvailability() throws Exception {
+        Browser customer = customer("alice@example.com");
+        assertThat(action(customer.post("add", 1))).isEqualTo("added");
         assertThat(action(customer.post("add", 14))).isEqualTo("added");
         JsonNode list = customer.ok("/api/account/wishlist");
         assertThat(list.get("totalItems").asInt()).isEqualTo(2);
@@ -94,7 +101,13 @@ class WishlistIntegrationTest {
         assertThat(newest.get("product").get("productAttributes").get("author").asText()).isEqualTo("J.K. Rowling");
         assertThat(newest.get("available").asBoolean()).isTrue();
         assertThat(newest.get("savedAt").asText()).isNotBlank();
-        assertThat(customer.ok("/api/account/wishlist/1").get("wishlisted").asBoolean()).isTrue();
+    }
+
+    @Test
+    void repeatedRemovalsLeaveOtherWishlistEntriesIntact() throws Exception {
+        Browser customer = customer("alice@example.com");
+        assertThat(action(customer.post("add", 1))).isEqualTo("added");
+        assertThat(action(customer.post("add", 14))).isEqualTo("added");
         assertThat(action(customer.post("remove", 1))).isEqualTo("removed");
         assertThat(action(customer.post("remove", 1))).isEqualTo("unchanged");
         assertThat(customer.ok("/api/account/wishlist/1").get("wishlisted").asBoolean()).isFalse();

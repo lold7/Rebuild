@@ -112,17 +112,13 @@ class CheckoutIntegrationTest {
     }
 
     @Test
-    void creationUsesCurrentPricesAggregatesFormatsDeductsStockAndClearsOnlyOwnedCart() throws Exception {
+    void creationUsesCurrentPricesAndReturnsSafeOrderDetails() throws Exception {
         Browser alice = customer("alice@example.com");
-        Browser bob = customer("bob@example.com");
         alice.add(1, 2, "Paperback");
         alice.add(1, 1, "Hardcover");
         alice.add(14, 2, "Paperback");
-        bob.add(1, 1, "Paperback");
         jdbc.update("UPDATE products SET product_price = 0.10 WHERE product_id = 1");
         jdbc.update("UPDATE products SET product_price = 0.20 WHERE product_id = 14");
-        int firstStock = stock(1);
-        int secondStock = stock(14);
         HttpResponse<String> response = alice.place(Map.of("paymentMethod", "Bank Transfer"), "first-order");
         JsonNode order = created(response);
         assertThat(order.get("status").asText()).isEqualTo("pending");
@@ -137,11 +133,31 @@ class CheckoutIntegrationTest {
         assertThat(order.has("requestFingerprint")).isFalse();
         assertThat(order.has("idempotencyKey")).isFalse();
         assertThat(order.get("items").size()).isEqualTo(3);
+        assertThat(ok(alice.get(response.headers().firstValue("Location").orElseThrow()))).isEqualTo(order);
+    }
+
+    @Test
+    void creationAggregatesFormatsWhenDeductingStock() throws Exception {
+        Browser alice = customer("alice@example.com");
+        alice.add(1, 2, "Paperback");
+        alice.add(1, 1, "Hardcover");
+        alice.add(14, 2, "Paperback");
+        int firstStock = stock(1);
+        int secondStock = stock(14);
+        created(alice.place(Map.of("paymentMethod", "Bank Transfer"), "stock-order"));
         assertThat(stock(1)).isEqualTo(firstStock - 3);
         assertThat(stock(14)).isEqualTo(secondStock - 2);
+    }
+
+    @Test
+    void creationClearsOnlyTheOrderingCustomersCart() throws Exception {
+        Browser alice = customer("alice@example.com");
+        Browser bob = customer("bob@example.com");
+        alice.add(1, 2, "Paperback");
+        bob.add(1, 1, "Paperback");
+        created(alice.place(Map.of("paymentMethod", "Bank Transfer"), "cart-order"));
         assertThat(ok(alice.get("/api/cart")).get("totalItems").asInt()).isZero();
         assertThat(ok(bob.get("/api/cart")).get("totalQuantity").asInt()).isEqualTo(1);
-        assertThat(ok(alice.get(response.headers().firstValue("Location").orElseThrow()))).isEqualTo(order);
     }
 
     @Test
@@ -436,9 +452,11 @@ class CheckoutIntegrationTest {
             assertThat(checkout.preview("alice@example.com").ready()).isFalse();
             assertThatThrownBy(() -> checkout.preview("other@example.com")).isInstanceOf(AccessDeniedException.class);
             assertThatThrownBy(() -> orders.get("other@example.com", 1)).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> orders.create("other@example.com", new CreateOrderRequest(null, "BANK_TRANSFER", null), "key"))
+            var validRequest = new CreateOrderRequest(null, "BANK_TRANSFER", null);
+            assertThatThrownBy(() -> orders.create("other@example.com", validRequest, "key"))
                 .isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> orders.create("alice@example.com", new CreateOrderRequest(-1L, "BANK_TRANSFER", null), "key"))
+            var invalidAddressRequest = new CreateOrderRequest(-1L, "BANK_TRANSFER", null);
+            assertThatThrownBy(() -> orders.create("alice@example.com", invalidAddressRequest, "key"))
                 .isInstanceOf(ConstraintViolationException.class);
             // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
@@ -503,7 +521,7 @@ class CheckoutIntegrationTest {
         bob.add(1, 1, "Paperback");
         var responses = concurrent(alice, Map.of("paymentMethod", "BANK_TRANSFER"), "alice-multi",
             bob, Map.of("paymentMethod", "BANK_TRANSFER"), "bob-multi");
-        assertThat(responses).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
+        assertThat(responses).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
         assertThat(stock(1)).isZero();
         assertThat(stock(14)).isZero();
         assertThat(orderCount()).isEqualTo(2);

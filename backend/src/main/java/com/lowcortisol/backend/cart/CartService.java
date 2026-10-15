@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN') && #email == authentication.name")
 public class CartService {
+    private static final String FORMAT = "format";
     private final CartRepository cart;
     private final CustomerAccountRepository customers;
 
@@ -54,7 +55,7 @@ public class CartService {
             cart.update(userId, existing.get().cartItemId(), newQuantity);
         } else {
             var attributes = JsonNodeFactory.instance.objectNode();
-            if (!format.isEmpty()) attributes.put("format", format);
+            if (!format.isEmpty()) attributes.put(FORMAT, format);
             cart.add(userId, product.productId(), request.quantity(), attributes);
         }
         return response(userId);
@@ -114,7 +115,7 @@ public class CartService {
     }
 
     private List<String> formats(ProductResponse product) {
-        JsonNode format = product.productAttributes().get("format");
+        JsonNode format = product.productAttributes().get(FORMAT);
         List<String> result = new ArrayList<>();
         if (format == null) return result;
         if (format.isTextual() && !format.asText().isBlank()) result.add(format.asText().trim());
@@ -137,7 +138,7 @@ public class CartService {
 
     private boolean validFormat(ProductResponse product, JsonNode attributes) {
         List<String> allowed = formats(product);
-        String selected = attributes.path("format").asText("");
+        String selected = attributes.path(FORMAT).asText("");
         return selected.isEmpty() ? allowed.isEmpty() : allowed.stream().anyMatch(format -> format.equalsIgnoreCase(selected));
     }
 

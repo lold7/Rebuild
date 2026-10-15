@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -30,53 +31,76 @@ public class ProductImageService {
 
     @PreAuthorize("hasRole('ADMIN')")
     public String upload(MultipartFile file) {
+        DecodedImage decoded = decode(readUpload(file));
+        byte[] sanitized = encode(decoded);
+        String name = UUID.randomUUID() + (decoded.format().equals("png") ? ".png" : ".jpg");
+        store(name, sanitized);
+        return name;
+    }
+
+    private byte[] readUpload(MultipartFile file) {
         if (file.isEmpty()) throw invalid();
         if (file.getSize() > MAX_BYTES) throw tooLarge();
         byte[] bytes;
         try (var input = file.getInputStream()) { bytes = input.readNBytes(MAX_BYTES + 1); }
         catch (IOException exception) { throw invalid(); }
         if (bytes.length > MAX_BYTES) throw tooLarge();
-        String format;
-        BufferedImage image;
+        return bytes;
+    }
+
+    private DecodedImage decode(byte[] bytes) {
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
             var readers = ImageIO.getImageReaders(input);
             if (!readers.hasNext()) throw invalid();
             var reader = readers.next();
             try {
-                format = reader.getFormatName().toLowerCase(Locale.ROOT);
+                String format = reader.getFormatName().toLowerCase(Locale.ROOT);
                 if (!format.equals("png") && !format.equals("jpeg")) throw invalid();
                 reader.setInput(input, true, true);
-                int width = reader.getWidth(0), height = reader.getHeight(0);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
                 if (width < 1 || height < 1 || width > 4096 || height > 4096 || (long) width * height > 10000000) throw invalid();
-                image = reader.read(0);
-                if (image == null) throw invalid();
+                return new DecodedImage(reader.read(0), format);
             } finally { reader.dispose(); }
         } catch (IOException | IllegalArgumentException exception) { throw invalid(); }
+    }
 
+    private byte[] encode(DecodedImage decoded) {
         // Store a decoded/re-encoded image under a server-generated name, without original metadata or trailing payloads.
         byte[] sanitized;
         try (var output = new ByteArrayOutputStream()) {
-            if (!ImageIO.write(image, format, output)) throw invalid();
+            if (!ImageIO.write(decoded.image(), decoded.format(), output)) throw invalid();
             sanitized = output.toByteArray();
         } catch (IOException exception) { throw invalid(); }
         if (sanitized.length > MAX_BYTES) throw tooLarge();
-        String name = UUID.randomUUID() + (format.equals("png") ? ".png" : ".jpg");
+        return sanitized;
+    }
+
+    private void store(String name, byte[] sanitized) {
         Path path = directory.resolve(name);
-        boolean created = false;
         try {
             Files.createDirectories(directory);
-            try (var output = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                created = true;
-                output.write(sanitized);
-            }
+            var output = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            writeCreatedFile(path, output, sanitized);
         } catch (IOException exception) {
-            if (created) {
-                try { Files.deleteIfExists(path); } catch (IOException ignored) { }
-            }
             throw new AdminProductException(HttpStatus.SERVICE_UNAVAILABLE, "IMAGE_STORAGE_UNAVAILABLE", "Unable to save the image");
         }
-        return name;
     }
+
+    private void writeCreatedFile(Path path, OutputStream output, byte[] sanitized) throws IOException {
+        try (output) {
+            output.write(sanitized);
+        } catch (IOException exception) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException ignored) {
+                // Cleanup is best effort; report the original storage failure even if deletion also fails.
+            }
+            throw exception;
+        }
+    }
+
+    private record DecodedImage(BufferedImage image, String format) {}
 
     public Resource image(String name) {
         if (!name.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\\.(png|jpg)")) {

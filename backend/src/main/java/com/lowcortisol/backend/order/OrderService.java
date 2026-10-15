@@ -71,8 +71,9 @@ public class OrderService {
         currentCart.items().forEach(item -> quantities.merge(item.product().productId(), (long) item.quantity(), Long::sum));
         quantities.forEach(orders::deductStock);
 
-        long orderId = orders.insert(userId, address.addressId(), request.savedPaymentMethodId(), idempotencyKey, fingerprint,
-            paymentMethod, addressSnapshot(address), payment, currentCart);
+        var identity = new OrderRepository.RequestIdentity(idempotencyKey, fingerprint);
+        var paymentDetails = new OrderRepository.PaymentDetails(request.savedPaymentMethodId(), paymentMethod, payment);
+        long orderId = orders.insert(userId, address.addressId(), identity, paymentDetails, addressSnapshot(address), currentCart);
         currentCart.items().forEach(item -> orders.addItem(orderId, item));
         cart.clear(email);
         return new OrderCreationResult(orders.response(orders.owned(userId, orderId).orElseThrow(OrderException::notFound)), true);
@@ -88,7 +89,7 @@ public class OrderService {
     public OrderPage history(String email, String page, String status) {
         int pageNumber;
         try {
-            if (page == null || !page.matches("[0-9]+")) throw new NumberFormatException();
+            if (page == null || !page.matches("\\d+")) throw new NumberFormatException();
             pageNumber = Integer.parseInt(page);
             if (pageNumber < 1) throw new NumberFormatException();
         } catch (NumberFormatException exception) {

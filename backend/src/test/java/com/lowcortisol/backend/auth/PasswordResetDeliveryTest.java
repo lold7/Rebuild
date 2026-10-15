@@ -31,20 +31,43 @@ class PasswordResetDeliveryTest {
     }
 
     @Test
+    void demoLinksRemoveOnlyTrailingSlashesWithoutBacktracking() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        String base = "https://bookstore.example/reset-password";
+        for (String suffix : new String[] {"", "/", "///", "/".repeat(20000)}) {
+            var settings = new PasswordResetProperties(PasswordResetProperties.Delivery.DEMO,
+                URI.create(base + suffix), "noreply@example.com");
+            var beans = new StaticListableBeanFactory(Map.of("sender", sender));
+            var delivery = new PasswordResetDelivery(settings, beans.getBeanProvider(JavaMailSender.class), "");
+            assertThat(delivery.deliver("alice@example.com", "token")).isEqualTo(base + "/token");
+        }
+        String internalSlashes = base + "/".repeat(20000) + "path";
+        var settings = new PasswordResetProperties(PasswordResetProperties.Delivery.DEMO,
+            URI.create(internalSlashes), "noreply@example.com");
+        var beans = new StaticListableBeanFactory(Map.of("sender", sender));
+        var delivery = new PasswordResetDelivery(settings, beans.getBeanProvider(JavaMailSender.class), "");
+        assertThat(delivery.deliver("alice@example.com", "token")).isEqualTo(internalSlashes + "/token");
+        verifyNoInteractions(sender);
+    }
+
+    @Test
     void smtpFailureReturnsGenericDeliveryError() {
         JavaMailSender sender = mock(JavaMailSender.class);
         doThrow(new MailSendException("private transport details")).when(sender).send(any(SimpleMailMessage.class));
         PasswordResetDelivery delivery = delivery(PasswordResetProperties.Delivery.SMTP, sender, "smtp.example.com");
-        assertThatThrownBy(() -> delivery.deliver("alice@example.com", "a".repeat(64)))
+        String token = "a".repeat(64);
+        assertThatThrownBy(() -> delivery.deliver("alice@example.com", token))
             .isInstanceOf(PasswordResetDeliveryException.class).hasMessageNotContaining("private transport details");
     }
 
     @Test
     void disabledOrUnconfiguredDeliveryCannotIssueLinks() {
         JavaMailSender sender = mock(JavaMailSender.class);
-        assertThatThrownBy(() -> delivery(PasswordResetProperties.Delivery.DISABLED, sender, "").requireAvailable())
+        var disabledDelivery = delivery(PasswordResetProperties.Delivery.DISABLED, sender, "");
+        assertThatThrownBy(disabledDelivery::requireAvailable)
             .isInstanceOf(PasswordResetDeliveryException.class);
-        assertThatThrownBy(() -> delivery(PasswordResetProperties.Delivery.SMTP, sender, "").requireAvailable())
+        var unconfiguredDelivery = delivery(PasswordResetProperties.Delivery.SMTP, sender, "");
+        assertThatThrownBy(unconfiguredDelivery::requireAvailable)
             .isInstanceOf(PasswordResetDeliveryException.class);
         verifyNoInteractions(sender);
     }

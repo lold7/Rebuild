@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN') && #email == authentication.name")
 public class WishlistService {
+    private static final String UNCHANGED = "unchanged";
     private final WishlistRepository wishlist;
 
     public WishlistService(WishlistRepository wishlist) {
@@ -30,15 +31,15 @@ public class WishlistService {
     public WishlistActionResponse add(String email, long productId) {
         validate(productId);
         long userId = wishlist.customerId(email, true);
-        if (wishlist.contains(userId, productId)) return action("unchanged", productId, true);
+        if (wishlist.contains(userId, productId)) return action(UNCHANGED, productId, true);
         requireVisible(productId);
-        return action(wishlist.add(userId, productId) ? "added" : "unchanged", productId, true);
+        return action(wishlist.add(userId, productId) ? "added" : UNCHANGED, productId, true);
     }
 
     @Transactional
     public WishlistActionResponse remove(String email, long productId) {
         validate(productId);
-        return action(wishlist.remove(wishlist.customerId(email, true), productId) ? "removed" : "unchanged", productId, false);
+        return action(wishlist.remove(wishlist.customerId(email, true), productId) ? "removed" : UNCHANGED, productId, false);
     }
 
     @Transactional

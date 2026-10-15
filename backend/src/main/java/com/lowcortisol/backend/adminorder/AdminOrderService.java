@@ -15,7 +15,8 @@ import org.springframework.validation.annotation.Validated;
 @PreAuthorize("hasRole('ADMIN') && #email == authentication.name")
 public class AdminOrderService {
     private static final int PAGE_SIZE = 15;
-    private static final Set<String> STATUSES = Set.of("pending", "processing", "completed", "cancelled");
+    private static final String CANCELLED = "cancelled";
+    private static final Set<String> STATUSES = Set.of("pending", "processing", "completed", CANCELLED);
     private final AdminOrderRepository orders;
 
     public AdminOrderService(AdminOrderRepository orders) { this.orders = orders; }
@@ -46,32 +47,40 @@ public class AdminOrderService {
         if (request.expectedVersion() != current.version()) throw AdminOrderException.stale();
         if (current.status().equals(target)) return orders.response(current);
         long adminId = orders.adminId(email);
-        if (current.stockReleased() && !target.equals("cancelled")) {
-            // Reversing a cancellation takes the books out of stock again, or fails without changing anything.
-            var products = orders.lockStock(id);
-            var quantities = orders.quantities(id);
-            for (var product : products) {
-                if (quantities.getOrDefault(product.id(), 0L) > product.quantity()) throw AdminOrderException.insufficientStock();
-            }
-            for (var product : products) {
-                long quantity = quantities.getOrDefault(product.id(), 0L);
-                if (quantity > 0) orders.reinstate(product, quantity, id, adminId);
-            }
-        } else if (target.equals("cancelled")) {
-            // Lock products in checkout's order, then read live item references after any competing product deletion.
-            var products = orders.lockStock(id);
-            var quantities = orders.quantities(id);
-            for (var product : products) {
-                long quantity = quantities.getOrDefault(product.id(), 0L);
-                if (quantity > Integer.MAX_VALUE - product.quantity()) throw AdminOrderException.overflow();
-            }
-            for (var product : products) {
-                long quantity = quantities.getOrDefault(product.id(), 0L);
-                if (quantity > 0) orders.restore(product, quantity, id, adminId);
-            }
+        if (current.stockReleased() && !target.equals(CANCELLED)) {
+            reinstateStock(id, adminId);
+        } else if (target.equals(CANCELLED)) {
+            restoreStock(id, adminId);
         }
         orders.status(current, target, adminId, request.reason());
         return orders.response(order(id, false));
+    }
+
+    private void reinstateStock(long id, long adminId) {
+        // Reversing a cancellation takes the books out of stock again, or fails without changing anything.
+        var products = orders.lockStock(id);
+        var quantities = orders.quantities(id);
+        for (var product : products) {
+            if (quantities.getOrDefault(product.id(), 0L) > product.quantity()) throw AdminOrderException.insufficientStock();
+        }
+        for (var product : products) {
+            long quantity = quantities.getOrDefault(product.id(), 0L);
+            if (quantity > 0) orders.reinstate(product, quantity, id, adminId);
+        }
+    }
+
+    private void restoreStock(long id, long adminId) {
+        // Lock products in checkout's order, then read live item references after any competing product deletion.
+        var products = orders.lockStock(id);
+        var quantities = orders.quantities(id);
+        for (var product : products) {
+            long quantity = quantities.getOrDefault(product.id(), 0L);
+            if (quantity > Integer.MAX_VALUE - product.quantity()) throw AdminOrderException.overflow();
+        }
+        for (var product : products) {
+            long quantity = quantities.getOrDefault(product.id(), 0L);
+            if (quantity > 0) orders.restore(product, quantity, id, adminId);
+        }
     }
 
     private AdminOrderRepository.Header order(long id, boolean lock) {
@@ -87,7 +96,7 @@ public class AdminOrderService {
 
     private int page(String value) {
         try {
-            if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+            if (value == null || !value.matches("\\d+")) throw new NumberFormatException();
             int number = Integer.parseInt(value);
             if (number < 1) throw new NumberFormatException();
             return number;
@@ -96,7 +105,7 @@ public class AdminOrderService {
 
     static long id(String value) {
         try {
-            if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+            if (value == null || !value.matches("\\d+")) throw new NumberFormatException();
             long id = Long.parseLong(value);
             if (id < 1) throw new NumberFormatException();
             return id;

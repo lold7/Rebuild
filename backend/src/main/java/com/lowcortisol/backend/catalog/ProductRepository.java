@@ -1,7 +1,7 @@
 package com.lowcortisol.backend.catalog;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -15,6 +15,12 @@ public class ProductRepository {
         """;
     private static final String SELECT_PRODUCT = "SELECT p.*, c.category_name, c.slug AS category_slug ";
     private static final String NEWEST_FIRST = " ORDER BY p.created_at DESC, p.product_id DESC ";
+    private static final String FILTERED_FROM = FROM_VISIBLE + """
+        AND (? OR p.category_id = ?)
+        AND (? OR p.product_name ILIKE ? ESCAPE '!'
+            OR COALESCE(p.product_description, '') ILIKE ? ESCAPE '!'
+            OR COALESCE(p.product_attributes ->> 'author', '') ILIKE ? ESCAPE '!')
+        """;
     private final JdbcTemplate jdbc;
     private final RowMapper<ProductResponse> mapper;
 
@@ -32,28 +38,13 @@ public class ProductRepository {
     }
 
     ProductPage page(int page, int pageSize, Long categoryId, String query) {
-        StringBuilder filter = new StringBuilder(FROM_VISIBLE);
-        List<Object> parameters = new ArrayList<>();
-        if (categoryId != null) {
-            filter.append(" AND p.category_id = ?");
-            parameters.add(categoryId);
-        }
-        if (!query.isEmpty()) {
-            // Treat wildcard characters literally, rather than allowing a query to match the entire catalog.
-            String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-            filter.append("""
-                 AND (p.product_name ILIKE ? ESCAPE '!'
-                   OR COALESCE(p.product_description, '') ILIKE ? ESCAPE '!'
-                   OR COALESCE(p.product_attributes ->> 'author', '') ILIKE ? ESCAPE '!')
-                """);
-            parameters.addAll(List.of(pattern, pattern, pattern));
-        }
-        long total = jdbc.queryForObject("SELECT COUNT(*) " + filter, Long.class, parameters.toArray());
-        List<Object> pageParameters = new ArrayList<>(parameters);
-        pageParameters.add(pageSize);
-        pageParameters.add(((long) page - 1) * pageSize);
-        List<ProductResponse> items = jdbc.query(SELECT_PRODUCT + filter + NEWEST_FIRST + " LIMIT ? OFFSET ?",
-            mapper, pageParameters.toArray());
+        // Treat wildcard characters literally, rather than allowing a query to match the entire catalog.
+        String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        long total = Objects.requireNonNull(jdbc.queryForObject("SELECT COUNT(*) " + FILTERED_FROM, Long.class,
+            categoryId == null, categoryId, query.isEmpty(), pattern, pattern, pattern), "Product count must not be null");
+        List<ProductResponse> items = jdbc.query(SELECT_PRODUCT + FILTERED_FROM + NEWEST_FIRST + " LIMIT ? OFFSET ?",
+            mapper, categoryId == null, categoryId, query.isEmpty(), pattern, pattern, pattern,
+            pageSize, ((long) page - 1) * pageSize);
         return new ProductPage(items, page, pageSize, total, (total + pageSize - 1) / pageSize);
     }
 }

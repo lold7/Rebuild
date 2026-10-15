@@ -72,9 +72,10 @@ class MergedMigrationIntegrationTest {
             """);
 
         // Without the merge fix, Flyway rejects the older cart migration on startup.
-        assertThatThrownBy(() -> Flyway.configure()
+        var strictFlyway = Flyway.configure()
             .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-            .locations("classpath:db/migration").outOfOrder(false).load().validate())
+            .locations("classpath:db/migration").outOfOrder(false).load();
+        assertThatThrownBy(strictFlyway::validate)
             .isInstanceOf(RuntimeException.class)
             .hasMessageContaining("Detected resolved migration not applied to database: 5");
 

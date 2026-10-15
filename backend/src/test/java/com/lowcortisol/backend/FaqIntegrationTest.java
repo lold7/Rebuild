@@ -190,7 +190,8 @@ class FaqIntegrationTest {
     void databaseRejectsBlankOversizedOrNegativeContent() {
         for (var values : List.of(List.of(" ", "Answer", 0), List.of("Question", " ", 0),
             List.of("x".repeat(501), "Answer", 0), List.of("Question", "x".repeat(10001), 0), List.of("Question", "Answer", -1))) {
-            assertThatThrownBy(() -> jdbc.update("INSERT INTO faqs (question, answer, sort_order) VALUES (?, ?, ?)", values.toArray()))
+            Object[] parameters = values.toArray();
+            assertThatThrownBy(() -> jdbc.update("INSERT INTO faqs (question, answer, sort_order) VALUES (?, ?, ?)", parameters))
                 .isInstanceOf(DataIntegrityViolationException.class);
         }
     }

@@ -1,9 +1,9 @@
 package com.lowcortisol.backend.admindashboard;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,11 +14,14 @@ public class AdminDashboardRepository {
     public AdminDashboardRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     OffsetDateTime generatedAt() {
-        return jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", OffsetDateTime.class);
+        return Objects.requireNonNull(jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", OffsetDateTime.class),
+            "Dashboard generation timestamp must not be null");
     }
 
     long recentOrderCount() {
-        return jdbc.queryForObject("SELECT count(*) FROM orders o JOIN users u ON u.user_id = o.user_id AND u.role = 'customer'", Long.class);
+        return Objects.requireNonNull(jdbc.queryForObject(
+            "SELECT count(*) FROM orders o JOIN users u ON u.user_id = o.user_id AND u.role = 'customer'", Long.class),
+            "Recent order count must not be null");
     }
 
     List<DashboardRecentOrder> recentOrders(int page, int size) {
@@ -39,6 +42,6 @@ public class AdminDashboardRepository {
             """, (rs, row) -> new DashboardDailySales(rs.getObject("sales_date", LocalDate.class),
                 rs.getLong("total_orders"), rs.getLong("pending_orders"), rs.getLong("completed_orders"),
                 rs.getLong("cancelled_orders"), rs.getBigDecimal("order_value"), rs.getBigDecimal("total_revenue")),
-            Date.valueOf(start), Date.valueOf(end));
+            start, end);
     }
 }

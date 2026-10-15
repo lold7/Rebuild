@@ -242,7 +242,8 @@ class AddressIntegrationTest {
             // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
                 List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
-            assertThatThrownBy(() -> addresses.add("alice@example.com", new AddAddressRequest("Home", "Alice", null, "Street", null, null, null, false)))
+            var request = new AddAddressRequest("Home", "Alice", null, "Street", null, null, null, false);
+            assertThatThrownBy(() -> addresses.add("alice@example.com", request))
                 .isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();
@@ -256,13 +257,13 @@ class AddressIntegrationTest {
         ok(second.post("/api/auth/login", Map.of("email", "alice@example.com", "password", "correct-password")));
         var created = concurrent(first, "/api/account/addresses/add", address("First", false),
             second, "/api/account/addresses/add", address("Second", false));
-        assertThat(created).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
+        assertThat(created).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
         long firstId = json.readTree(created.get(0).body()).get("addressId").asLong();
         long secondId = json.readTree(created.get(1).body()).get("addressId").asLong();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM addresses WHERE is_default", Integer.class)).isEqualTo(1);
         var defaults = concurrent(first, "/api/account/addresses/default/" + firstId, Map.of(),
             second, "/api/account/addresses/default/" + secondId, Map.of());
-        assertThat(defaults).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
+        assertThat(defaults).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
         assertThat(first.book().get("totalAddresses").asInt()).isEqualTo(2);
         assertThat(first.book().get("defaultAddressId").asLong()).isIn(firstId, secondId);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM addresses WHERE is_default", Integer.class)).isEqualTo(1);
@@ -278,7 +279,7 @@ class AddressIntegrationTest {
         first.add("Third", false);
         var responses = concurrent(first, "/api/account/addresses/delete/" + firstId, Map.of(),
             second, "/api/account/addresses/default/" + secondId, Map.of());
-        assertThat(responses).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
+        assertThat(responses).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
         assertThat(first.book().get("defaultAddressId").asLong()).isEqualTo(secondId);
         assertThat(first.book().get("totalAddresses").asInt()).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM addresses WHERE is_default", Integer.class)).isEqualTo(1);

@@ -33,7 +33,6 @@ import org.springframework.security.web.authentication.session.SessionAuthentica
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -132,7 +131,7 @@ public class SecurityConfig {
                 .anyRequest().denyAll())
             .rememberMe(config -> config.key(key).rememberMeServices(rememberMe))
             .logout(config -> config
-                .logoutRequestMatcher(new AntPathRequestMatcher("/api/auth/logout", "POST"))
+                .logoutUrl("/api/auth/logout")
                 .deleteCookies("SESSION")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
             .exceptionHandling(config -> config

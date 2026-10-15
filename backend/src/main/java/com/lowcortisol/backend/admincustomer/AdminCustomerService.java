@@ -2,13 +2,15 @@ package com.lowcortisol.backend.admincustomer;
 
 import java.util.Locale;
 import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@PreAuthorize("hasRole('ADMIN') && #email == authentication.name")
+@PreAuthorize("hasRole('ADMIN')")
 @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 public class AdminCustomerService {
     private static final int PAGE_SIZE = 15;
@@ -17,28 +19,38 @@ public class AdminCustomerService {
     public AdminCustomerService(AdminCustomerRepository customers) { this.customers = customers; }
 
     public AdminCustomerPage list(String email, String page, String query, String activity, String sort) {
+        requireMatchingIdentity(email);
         return customers.page(page(page), PAGE_SIZE, query(query),
             option(activity, "all", Set.of("all", "ordered", "no-orders"), "activity"),
             option(sort, "newest", Set.of("newest", "orders", "spent"), "sort"));
     }
 
     public AdminCustomerSummary summary(String email, String query, String activity) {
+        requireMatchingIdentity(email);
         return customers.summary(query(query), option(activity, "all", Set.of("all", "ordered", "no-orders"), "activity"));
     }
 
     public AdminCustomerResponse get(String email, String id) {
+        requireMatchingIdentity(email);
         long customerId;
         try {
-            if (id == null || !id.matches("[0-9]+")) throw new NumberFormatException();
+            if (id == null || !id.matches("\\d+")) throw new NumberFormatException();
             customerId = Long.parseLong(id);
             if (customerId < 1) throw new NumberFormatException();
         } catch (NumberFormatException exception) { throw AdminCustomerException.invalid("Customer ID must be a positive 64-bit integer"); }
         return customers.get(customerId).orElseThrow(AdminCustomerException::missing);
     }
 
+    private void requireMatchingIdentity(String email) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.getName().equals(email)) {
+            throw new AccessDeniedException("Admin identity does not match the authenticated user");
+        }
+    }
+
     private int page(String value) {
         try {
-            if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+            if (value == null || !value.matches("\\d+")) throw new NumberFormatException();
             int number = Integer.parseInt(value);
             if (number < 1) throw new NumberFormatException();
             return number;

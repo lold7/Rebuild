@@ -114,9 +114,9 @@ class OrderHistoryIntegrationTest {
     @Test
     void timestampOrderingTakesPriorityOverOrderIdAndTiesUseDescendingId() throws Exception {
         Browser browser = customer("alice@example.com");
-        List<Long> orders = seed(browser.userId, 3, "pending");
-        jdbc.update("UPDATE orders SET created_at = '2026-02-01T00:00:00Z' WHERE order_id = ?", orders.get(0));
-        assertThat(ids(ok(browser.get(API)))).containsExactly(orders.get(0), orders.get(2), orders.get(1));
+        List<Long> orderIds = seed(browser.userId, 3, "pending");
+        jdbc.update("UPDATE orders SET created_at = '2026-02-01T00:00:00Z' WHERE order_id = ?", orderIds.get(0));
+        assertThat(ids(ok(browser.get(API)))).containsExactly(orderIds.get(0), orderIds.get(2), orderIds.get(1));
     }
 
     @Test

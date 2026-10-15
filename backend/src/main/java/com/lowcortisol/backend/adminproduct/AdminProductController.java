@@ -65,7 +65,7 @@ public class AdminProductController {
         Long version = null;
         if (expectedVersion != null) {
             try {
-                if (!expectedVersion.matches("[0-9]+")) throw new NumberFormatException();
+                if (!expectedVersion.matches("\\d+")) throw new NumberFormatException();
                 version = Long.parseLong(expectedVersion);
             } catch (NumberFormatException exception) { throw AdminProductException.invalid("Invalid expectedVersion"); }
         }

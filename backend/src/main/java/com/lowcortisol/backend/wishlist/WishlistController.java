@@ -27,7 +27,7 @@ public class WishlistController {
     public WishlistStatusResponse status(@PathVariable String productId, Authentication authentication) {
         long id;
         try {
-            if (!productId.matches("[0-9]+")) throw new NumberFormatException();
+            if (!productId.matches("\\d+")) throw new NumberFormatException();
             id = Long.parseLong(productId);
         } catch (NumberFormatException exception) {
             throw new InvalidWishlistRequestException();

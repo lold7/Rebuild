@@ -9,24 +9,27 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class OrderRepository {
     private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate namedJdbc;
     private final ObjectMapper json;
     private final RowMapper<OrderHeader> headers;
     private final RowMapper<OrderItemResponse> items;
 
     public OrderRepository(JdbcTemplate jdbc, ObjectMapper json) {
         this.jdbc = jdbc;
+        this.namedJdbc = new NamedParameterJdbcTemplate(jdbc);
         this.json = json;
         headers = (rs, row) -> new OrderHeader(rs.getLong("order_id"), rs.getString("request_fingerprint"),
             rs.getString("status"), rs.getString("payment_status"), rs.getString("payment_method"), rs.getString("currency"),
@@ -45,23 +48,19 @@ public class OrderRepository {
     }
 
     long historyCount(long userId, String status) {
-        String sql = "SELECT count(*) FROM orders WHERE user_id = ?";
-        return status == null ? jdbc.queryForObject(sql, Long.class, userId)
-            : jdbc.queryForObject(sql + " AND status = ?", Long.class, userId, status);
+        if (status == null) {
+            return Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM orders WHERE user_id = ?", Long.class, userId),
+                "Order history count must not be null");
+        }
+        return Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM orders WHERE user_id = ? AND status = ?",
+            Long.class, userId, status), "Order history count must not be null");
     }
 
     List<OrderResponse> history(long userId, int page, int pageSize, String status) {
-        String sql = "SELECT * FROM orders WHERE user_id = ?";
-        List<Object> parameters = new ArrayList<>();
-        parameters.add(userId);
-        if (status != null) {
-            sql += " AND status = ?";
-            parameters.add(status);
-        }
-        sql += " ORDER BY created_at DESC, order_id DESC LIMIT ? OFFSET ?";
-        parameters.add(pageSize);
-        parameters.add((long) (page - 1) * pageSize);
-        var pageHeaders = jdbc.query(sql, headers, parameters.toArray());
+        var pageHeaders = jdbc.query("""
+            SELECT * FROM orders WHERE user_id = ? AND (? OR status = ?)
+            ORDER BY created_at DESC, order_id DESC LIMIT ? OFFSET ?
+            """, headers, userId, status == null, status, pageSize, (long) (page - 1) * pageSize);
         if (pageHeaders.isEmpty()) return List.of();
 
         // Fetch all page items together rather than issuing one query per order.
@@ -71,27 +70,26 @@ public class OrderRepository {
 
     public Map<Long, List<OrderItemResponse>> itemsForOrders(List<Long> orderIds) {
         if (orderIds.isEmpty()) return Map.of();
-        String placeholders = String.join(",", Collections.nCopies(orderIds.size(), "?"));
-        var rows = jdbc.query("SELECT * FROM order_items WHERE order_id IN (" + placeholders + ") ORDER BY order_id, order_item_id",
-            (rs, row) -> Map.entry(rs.getLong("order_id"), items.mapRow(rs, row)),
-            orderIds.toArray());
+        var rows = namedJdbc.query("""
+            SELECT * FROM order_items WHERE order_id IN (:orderIds) ORDER BY order_id, order_item_id
+            """, Map.of("orderIds", orderIds), (rs, row) -> Map.entry(rs.getLong("order_id"), items.mapRow(rs, row)));
         Map<Long, List<OrderItemResponse>> grouped = new HashMap<>();
         rows.forEach(row -> grouped.computeIfAbsent(row.getKey(), ignored -> new ArrayList<>()).add(row.getValue()));
         return grouped;
     }
 
-    long insert(long userId, Long addressId, Long savedPaymentMethodId, String key, String fingerprint,
-        String paymentMethod, JsonNode address, JsonNode payment, CartResponse cart) {
+    long insert(long userId, Long addressId, RequestIdentity identity, PaymentDetails payment,
+        JsonNode address, CartResponse cart) {
         // Card orders are paid at checkout and complete immediately; other methods wait for fulfilment.
-        boolean card = paymentMethod.equals("CREDIT_CARD") || paymentMethod.equals("DEBIT_CARD");
-        return jdbc.queryForObject("""
+        boolean card = payment.method().equals("CREDIT_CARD") || payment.method().equals("DEBIT_CARD");
+        return Objects.requireNonNull(jdbc.queryForObject("""
             INSERT INTO orders (user_id, address_id, saved_payment_method_id, idempotency_key, request_fingerprint,
                 payment_method, address_snapshot, payment_snapshot, total_items, total_quantity, total_price,
                 status, payment_status)
             VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?, ?, ?, ?) RETURNING order_id
-            """, Long.class, userId, addressId, savedPaymentMethodId, key, fingerprint, paymentMethod,
-            address.toString(), payment == null ? null : payment.toString(), cart.totalItems(), cart.totalQuantity(), cart.totalPrice(),
-            card ? "completed" : "pending", card ? "paid" : "unpaid");
+            """, Long.class, userId, addressId, payment.savedMethodId(), identity.key(), identity.fingerprint(), payment.method(),
+            address.toString(), payment.snapshot() == null ? null : payment.snapshot().toString(), cart.totalItems(), cart.totalQuantity(), cart.totalPrice(),
+            card ? "completed" : "pending", card ? "paid" : "unpaid"), "Inserted order ID must not be null");
     }
 
     void addItem(long orderId, CartItemResponse item) {
@@ -137,6 +135,9 @@ public class OrderRepository {
             throw new SQLException("Invalid order snapshot in database", exception);
         }
     }
+
+    record RequestIdentity(String key, String fingerprint) {}
+    record PaymentDetails(Long savedMethodId, String method, JsonNode snapshot) {}
 
     record OrderHeader(long id, String fingerprint, String status, String paymentStatus, String paymentMethod,
         String currency, int totalItems, long totalQuantity, java.math.BigDecimal totalPrice,

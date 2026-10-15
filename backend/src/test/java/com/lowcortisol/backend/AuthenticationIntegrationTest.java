@@ -166,30 +166,38 @@ class AuthenticationIntegrationTest {
     }
 
     @Test
-    void customerEmailChangeRevokesOldIdentityAndRequiresLoginWithNewEmail() throws Exception {
+    void customerEmailChangePreservesAccountIdAndRequiresNewEmailCredentials() throws Exception {
+        Browser browser = registeredBrowser();
+        assertThat(browser.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
+        long originalId = jdbc.queryForObject("SELECT user_id FROM users", Long.class);
+        HttpResponse<String> update = browser.post("/api/account/profile", profileChanges("NEW@example.com"));
+        assertThat(update.statusCode()).isEqualTo(200);
+        JsonNode result = mapper.readTree(update.body());
+        assertThat(result.get("reauthenticationRequired").asBoolean()).isTrue();
+        assertThat(result.get("user").get("email").asText()).isEqualTo("new@example.com");
+        assertThat(result.get("user").get("userId").asLong()).isEqualTo(originalId);
+        assertThat(browser.post("/api/auth/login", login(false)).statusCode()).isEqualTo(401);
+        assertThat(browser.post("/api/auth/login", Map.of("email", "new@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
+        assertThat(browser.get("/api/account/profile").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void customerEmailChangeRevokesSessionsRememberedLoginAndResetLinksOnlyForThatAccount() throws Exception {
         Browser first = registeredBrowser();
         Browser second = new Browser();
         assertThat(first.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
         assertThat(second.post("/api/auth/login", login(true)).statusCode()).isEqualTo(200);
-        long originalId = jdbc.queryForObject("SELECT user_id FROM users", Long.class);
         String pendingReset = requestReset(first, "alice@example.com");
         Browser other = new Browser();
         assertThat(other.post("/api/auth/register", registration("other@example.com")).statusCode()).isEqualTo(201);
         assertThat(other.post("/api/auth/login", Map.of("email", "other@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
         HttpResponse<String> update = first.post("/api/account/profile", profileChanges("NEW@example.com"));
         assertThat(update.statusCode()).isEqualTo(200);
-        JsonNode result = mapper.readTree(update.body());
-        assertThat(result.get("reauthenticationRequired").asBoolean()).isTrue();
-        assertThat(result.get("user").get("email").asText()).isEqualTo("new@example.com");
-        assertThat(result.get("user").get("userId").asLong()).isEqualTo(originalId);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM persistent_logins", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session WHERE principal_name = 'alice@example.com'", Integer.class)).isZero();
         assertThat(first.get("/api/account/profile").statusCode()).isEqualTo(401);
         assertThat(first.get(resetPath(pendingReset)).statusCode()).isEqualTo(400);
         assertThat(other.get("/api/account/profile").statusCode()).isEqualTo(200);
-        assertThat(first.post("/api/auth/login", login(false)).statusCode()).isEqualTo(401);
-        assertThat(first.post("/api/auth/login", Map.of("email", "new@example.com", "password", "correct-password")).statusCode()).isEqualTo(200);
-        assertThat(first.get("/api/account/profile").statusCode()).isEqualTo(200);
         // Reusing the released email cannot make the old remembered cookie authenticate a new account.
         Browser replacement = new Browser();
         assertThat(replacement.post("/api/auth/register", registration("alice@example.com")).statusCode()).isEqualTo(201);
@@ -300,7 +308,8 @@ class AuthenticationIntegrationTest {
         try {
             assertThat(profiles.currentProfile("alice@example.com").email()).isEqualTo("alice@example.com");
             assertThatThrownBy(() -> profiles.currentProfile("another@example.com")).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> profiles.updateProfile("another@example.com", new ProfileUpdateRequest("Changed", "new@example.com", null)))
+            var changes = new ProfileUpdateRequest("Changed", "new@example.com", null);
+            assertThatThrownBy(() -> profiles.updateProfile("another@example.com", changes))
                 .isInstanceOf(AccessDeniedException.class);
         } finally {
             SecurityContextHolder.clearContext();
@@ -629,8 +638,9 @@ class AuthenticationIntegrationTest {
 
     @Test
     void adminCreationIsAlsoProtectedAtServiceLayer() {
-        assertThatThrownBy(() -> admins.register(new AdminRegisterRequest("Second", "second@example.com",
-            "second-admin-password", "second-admin-password", null)))
+        var request = new AdminRegisterRequest("Second", "second@example.com",
+            "second-admin-password", "second-admin-password", null);
+        assertThatThrownBy(() -> admins.register(request))
             .isInstanceOfAny(AccessDeniedException.class, AuthenticationCredentialsNotFoundException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM users", Integer.class)).isZero();
     }

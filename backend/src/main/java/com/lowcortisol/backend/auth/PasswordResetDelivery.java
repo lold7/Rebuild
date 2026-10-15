@@ -33,7 +33,10 @@ public class PasswordResetDelivery {
     // A link is returned to the client only in the explicitly enabled local demo mode.
     public String deliver(String email, String token) {
         requireAvailable();
-        String link = settings.linkBaseUrl().toString().replaceAll("/+$", "") + "/" + token;
+        String baseUrl = settings.linkBaseUrl().toString();
+        int end = baseUrl.length();
+        while (end > 0 && baseUrl.charAt(end - 1) == '/') end--;
+        String link = baseUrl.substring(0, end) + "/" + token;
         if (settings.delivery() == PasswordResetProperties.Delivery.DEMO) {
             return link;
         }

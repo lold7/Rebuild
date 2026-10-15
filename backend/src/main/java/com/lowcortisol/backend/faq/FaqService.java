@@ -20,7 +20,7 @@ public class FaqService {
     public FaqResponse get(String id) {
         long faqId;
         try {
-            if (id == null || !id.matches("[0-9]+")) throw new NumberFormatException();
+            if (id == null || !id.matches("\\d+")) throw new NumberFormatException();
             faqId = Long.parseLong(id);
             if (faqId < 1) throw new NumberFormatException();
         } catch (NumberFormatException exception) { throw FaqException.invalid("FAQ ID must be a positive 64-bit integer"); }

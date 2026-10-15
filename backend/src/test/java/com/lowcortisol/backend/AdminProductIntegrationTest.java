@@ -526,7 +526,8 @@ class AdminProductIntegrationTest {
         try {
             assertThat(products.get("admin@example.com", 1).product().productId()).isEqualTo(1);
             assertThatThrownBy(() -> products.get("other@example.com", 1)).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> products.stock("admin@example.com", 1, new StockUpdateRequest(-1, 0L, "Count")))
+            var invalidStockRequest = new StockUpdateRequest(-1, 0L, "Count");
+            assertThatThrownBy(() -> products.stock("admin@example.com", 1, invalidStockRequest))
                 .isInstanceOf(ConstraintViolationException.class);
             var invalid = new ProductWriteRequest(1L, "Name", null, new BigDecimal("1.234"), null, null, 0, true, null);
             assertThatThrownBy(() -> products.create("admin@example.com", invalid)).isInstanceOf(ConstraintViolationException.class);

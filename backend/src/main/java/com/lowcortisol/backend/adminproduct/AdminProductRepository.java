@@ -3,8 +3,8 @@ package com.lowcortisol.backend.adminproduct;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.lowcortisol.backend.catalog.ProductRowMapper;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -15,6 +15,17 @@ import org.springframework.stereotype.Repository;
 public class AdminProductRepository {
     private static final String SELECT = "SELECT p.*, c.category_name, c.slug AS category_slug, c.is_visible AS category_visible ";
     private static final String FROM = "FROM products p JOIN categories c ON c.category_id = p.category_id WHERE TRUE ";
+    private static final String FILTERED_FROM = FROM + """
+        AND (? OR p.category_id = ?)
+        AND (? OR (p.is_visible AND c.is_visible))
+        AND (? OR NOT (p.is_visible AND c.is_visible))
+        AND (? OR p.product_quantity = 0)
+        AND (? OR p.product_quantity BETWEEN 1 AND ?)
+        AND (? OR p.product_name ILIKE ? ESCAPE '!'
+            OR COALESCE(p.product_description, '') ILIKE ? ESCAPE '!'
+            OR COALESCE(p.product_attributes ->> 'author', '') ILIKE ? ESCAPE '!'
+            OR COALESCE(p.product_attributes ->> 'sku', '') ILIKE ? ESCAPE '!')
+        """;
     private final JdbcTemplate jdbc;
     private final RowMapper<AdminProductResponse> mapper;
     private final RowMapper<InventoryAdjustmentResponse> adjustments = (rs, row) -> new InventoryAdjustmentResponse(
@@ -29,12 +40,22 @@ public class AdminProductRepository {
     }
 
     Optional<AdminProductResponse> get(long id, boolean lock) {
-        return jdbc.query(SELECT + FROM + " AND p.product_id = ?" + (lock ? " FOR UPDATE OF p" : ""), mapper, id).stream().findFirst();
+        if (lock) {
+            return jdbc.query(SELECT + FROM + " AND p.product_id = ? FOR UPDATE OF p", mapper, id).stream().findFirst();
+        }
+        return jdbc.query(SELECT + FROM + " AND p.product_id = ?", mapper, id).stream().findFirst();
     }
 
     void requireCategory(long id, boolean lock) {
-        if (jdbc.query("SELECT category_id FROM categories WHERE category_id = ?" + (lock ? " FOR KEY SHARE" : ""),
-            (rs, row) -> rs.getLong("category_id"), id).isEmpty()) throw AdminProductException.missing("Category");
+        boolean exists;
+        if (lock) {
+            exists = !jdbc.query("SELECT category_id FROM categories WHERE category_id = ? FOR KEY SHARE",
+                (rs, row) -> rs.getLong("category_id"), id).isEmpty();
+        } else {
+            exists = !jdbc.query("SELECT category_id FROM categories WHERE category_id = ?",
+                (rs, row) -> rs.getLong("category_id"), id).isEmpty();
+        }
+        if (!exists) throw AdminProductException.missing("Category");
     }
 
     long adminId(String email) {
@@ -43,38 +64,28 @@ public class AdminProductRepository {
     }
 
     AdminProductPage page(int page, int size, String query, Long category, String visibility, String stock, int threshold) {
-        StringBuilder filter = new StringBuilder(FROM);
-        List<Object> args = new ArrayList<>();
-        if (category != null) { filter.append(" AND p.category_id = ?"); args.add(category); }
-        if (visibility.equals("visible")) filter.append(" AND p.is_visible AND c.is_visible");
-        if (visibility.equals("hidden")) filter.append(" AND NOT (p.is_visible AND c.is_visible)");
-        if (stock.equals("out")) filter.append(" AND p.product_quantity = 0");
-        if (stock.equals("low")) { filter.append(" AND p.product_quantity BETWEEN 1 AND ?"); args.add(threshold); }
-        if (!query.isEmpty()) {
-            String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-            filter.append("""
-                 AND (p.product_name ILIKE ? ESCAPE '!' OR COALESCE(p.product_description, '') ILIKE ? ESCAPE '!'
-                   OR COALESCE(p.product_attributes ->> 'author', '') ILIKE ? ESCAPE '!'
-                   OR COALESCE(p.product_attributes ->> 'sku', '') ILIKE ? ESCAPE '!')
-                """);
-            args.addAll(List.of(pattern, pattern, pattern, pattern));
-        }
-        long count = jdbc.queryForObject("SELECT count(*) " + filter, Long.class, args.toArray());
-        args.add(size);
-        args.add((long) (page - 1) * size);
-        var items = jdbc.query(SELECT + filter + " ORDER BY p.created_at DESC, p.product_id DESC LIMIT ? OFFSET ?", mapper, args.toArray());
+        String pattern = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        Object[] args = {category == null, category, !visibility.equals("visible"), !visibility.equals("hidden"),
+            !stock.equals("out"), !stock.equals("low"), threshold, query.isEmpty(), pattern, pattern, pattern, pattern};
+        long count = Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) " + FILTERED_FROM, Long.class, args),
+            "Product count must not be null");
+        Object[] pageArgs = Arrays.copyOf(args, args.length + 2);
+        pageArgs[args.length] = size;
+        pageArgs[args.length + 1] = (long) (page - 1) * size;
+        var items = jdbc.query(SELECT + FILTERED_FROM + " ORDER BY p.created_at DESC, p.product_id DESC LIMIT ? OFFSET ?", mapper, pageArgs);
         return new AdminProductPage(items, page, size, count, pages(count, size));
     }
 
     long insert(ProductWriteRequest request, JsonNode images, JsonNode attributes) {
-        return jdbc.queryForObject("""
+        return Objects.requireNonNull(jdbc.queryForObject("""
             INSERT INTO products (category_id, product_name, product_description, product_price, product_images,
                 product_attributes, product_quantity, is_visible)
             VALUES (?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?) RETURNING product_id
             """, Long.class, request.categoryId(), request.productName().trim(), request.productDescription(), request.productPrice(),
             images.toString(), attributes.toString(), request.productQuantity() == null ? 0 : request.productQuantity(),
             // A book added without stock starts hidden.
-            (request.isVisible() == null || request.isVisible()) && request.productQuantity() != null && request.productQuantity() > 0);
+            (request.isVisible() == null || request.isVisible()) && request.productQuantity() != null && request.productQuantity() > 0),
+            "Inserted product ID must not be null");
     }
 
     void update(long id, ProductWriteRequest request, JsonNode images, JsonNode attributes, int quantity, boolean visible) {
@@ -118,7 +129,8 @@ public class AdminProductRepository {
     }
 
     InventoryAdjustmentPage adjustments(long id, int page, int size) {
-        long count = jdbc.queryForObject("SELECT count(*) FROM inventory_adjustments WHERE product_id = ?", Long.class, id);
+        long count = Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM inventory_adjustments WHERE product_id = ?",
+            Long.class, id), "Inventory adjustment count must not be null");
         var items = jdbc.query("""
             SELECT * FROM inventory_adjustments WHERE product_id = ?
             ORDER BY created_at DESC, adjustment_id DESC LIMIT ? OFFSET ?

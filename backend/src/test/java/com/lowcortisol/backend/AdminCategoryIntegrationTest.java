@@ -169,7 +169,7 @@ class AdminCategoryIntegrationTest {
     }
 
     @Test
-    void hiddenCategoriesAffectCatalogCartWishlistAndCheckoutWithoutChangingProductVisibility() throws Exception {
+    void hiddenCategoriesMakeCatalogCartWishlistAndCheckoutUnavailableWithoutChangingStock() throws Exception {
         Browser admin = admin(), customer = customer();
         customer.add();
         ok(customer.send("POST", "/api/account/wishlist/add", Map.of("productId", 1)));
@@ -182,7 +182,17 @@ class AdminCategoryIntegrationTest {
         assertThat(ok(customer.get("/api/cart")).get("items").get(0).get("available").asBoolean()).isFalse();
         assertThat(ok(customer.get("/api/account/wishlist")).get("items").get(0).get("available").asBoolean()).isFalse();
         assertError(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")), 409, "PRODUCT_UNAVAILABLE");
+        assertThat(jdbc.queryForObject("SELECT product_quantity FROM products WHERE product_id = 1", Integer.class)).isEqualTo(74);
+    }
+
+    @Test
+    void showingCategoryRestoresCartAvailabilityAndPreservesIndividuallyHiddenProducts() throws Exception {
+        Browser admin = admin(), customer = customer();
+        customer.add();
+        ok(admin.send("PUT", "/api/admin/products/2/visibility", Map.of("isVisible", false, "expectedVersion", 0)));
+        ok(admin.send("PUT", API + "/1/visibility", Map.of("isVisible", false, "expectedVersion", 0)));
         ok(admin.send("PUT", API + "/1/toggle", Map.of("expectedVersion", 1)));
+        Browser publicBrowser = new Browser();
         assertThat(publicBrowser.get("/api/products/1").statusCode()).isEqualTo(200);
         assertThat(publicBrowser.get("/api/products/2").statusCode()).isEqualTo(404);
         assertThat(ok(customer.get("/api/cart")).get("valid").asBoolean()).isTrue();
@@ -229,11 +239,25 @@ class AdminCategoryIntegrationTest {
     }
 
     @Test
+    void slugGenerationTrimsAndCollapsesSeparatorsAndRemovesCombiningMarks() throws Exception {
+        Browser admin = admin();
+        JsonNode category = created(admin.send("POST", API,
+            Map.of("categoryName", "-- Cafe\u0301 /// & Books !!! --")));
+        assertThat(category.get("slug").asText()).isEqualTo("cafe-books");
+        String longestSlug = "a-".repeat(59) + "ab";
+        JsonNode explicit = created(admin.send("POST", API,
+            Map.of("categoryName", "Repeated segments", "slug", longestSlug)));
+        assertThat(explicit.get("slug").asText()).isEqualTo(longestSlug);
+    }
+
+    @Test
     void invalidRequestsIdsFiltersAndMissingVersionsCannotChangeCategories() throws Exception {
         Browser admin = admin();
         assertThat(admin.send("POST", API, Map.of()).statusCode()).isEqualTo(400);
         for (var field : List.of(Map.entry("categoryName", " "), Map.entry("categoryName", "x".repeat(101)),
             Map.entry("slug", ""), Map.entry("slug", "123"), Map.entry("slug", "not--valid"),
+            Map.entry("slug", "-leading"), Map.entry("slug", "trailing-"),
+            Map.entry("slug", "a-".repeat(60)), Map.entry("slug", "a-".repeat(10000)),
             Map.entry("slug", "not/valid"), Map.entry("slug", "123-456"), Map.entry("slug", "élèves"), Map.entry("slug", "x".repeat(121)),
             Map.entry("categoryImage", "../file.png"), Map.entry("categoryImage", "javascript:alert(1)"),
             Map.entry("categoryImage", "x".repeat(501)), Map.entry("expectedVersion", 0), Map.entry("categoryId", 1),
@@ -296,10 +320,12 @@ class AdminCategoryIntegrationTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("admin@example.com", null,
             List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         try {
-            assertThat(categories.list("admin@example.com", "", null).size()).isEqualTo(5);
+            assertThat(categories.list("admin@example.com", "", null)).hasSize(5);
             assertThatThrownBy(() -> categories.get("other@example.com", 1)).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> categories.toggle("other@example.com", 1, new CategoryVersionRequest(0L))).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> categories.create("admin@example.com", new CategoryWriteRequest(" ", null, null, null, null)))
+            var versionRequest = new CategoryVersionRequest(0L);
+            assertThatThrownBy(() -> categories.toggle("other@example.com", 1, versionRequest)).isInstanceOf(AccessDeniedException.class);
+            var invalidCategoryRequest = new CategoryWriteRequest(" ", null, null, null, null);
+            assertThatThrownBy(() -> categories.create("admin@example.com", invalidCategoryRequest))
                 .isInstanceOf(ConstraintViolationException.class);
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
                 List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));

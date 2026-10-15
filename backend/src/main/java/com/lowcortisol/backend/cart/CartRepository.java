@@ -7,6 +7,7 @@ import com.lowcortisol.backend.catalog.ProductResponse;
 import com.lowcortisol.backend.catalog.ProductRowMapper;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -67,8 +68,9 @@ public class CartRepository {
     }
 
     long productQuantity(long userId, long productId) {
-        return jdbc.queryForObject("SELECT COALESCE(SUM(quantity), 0) FROM cart_items WHERE user_id = ? AND product_id = ?",
-            Long.class, userId, productId);
+        return Objects.requireNonNull(jdbc.queryForObject(
+            "SELECT COALESCE(SUM(quantity), 0) FROM cart_items WHERE user_id = ? AND product_id = ?",
+            Long.class, userId, productId), "Cart product quantity must not be null");
     }
 
     void add(long userId, long productId, int quantity, JsonNode attributes) {

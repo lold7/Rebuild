@@ -30,11 +30,15 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AdminDashboardResponse get(String email, String days) {
-        return get(email, days, null);
+        return buildDashboard(email, days, null);
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AdminDashboardResponse get(String email, String days, String page) {
+        return buildDashboard(email, days, page);
+    }
+
+    private AdminDashboardResponse buildDashboard(String email, String days, String page) {
         int count = days(days);
         int recentPage = page(page);
         // Anchor both the report snapshot and the UTC date window to this PostgreSQL transaction.
@@ -50,7 +54,8 @@ public class AdminDashboardService {
         dashboard.dailySales(start, end).forEach(day -> byDate.put(day.date(), day));
         var daily = new ArrayList<DashboardDailySales>();
         long totalOrders = 0;
-        BigDecimal orderValue = BigDecimal.ZERO.setScale(2), revenue = BigDecimal.ZERO.setScale(2);
+        BigDecimal orderValue = BigDecimal.ZERO.setScale(2);
+        BigDecimal revenue = BigDecimal.ZERO.setScale(2);
         for (int i = 0; i < count; i++) {
             var date = start.plusDays(i);
             var day = byDate.getOrDefault(date, new DashboardDailySales(date, 0, 0, 0, 0,
@@ -70,7 +75,7 @@ public class AdminDashboardService {
     private int page(String value) {
         if (value == null) return 1;
         try {
-            if (!value.matches("[0-9]+")) throw new NumberFormatException();
+            if (!value.matches("\\d+")) throw new NumberFormatException();
             int page = Integer.parseInt(value);
             if (page < 1) throw new NumberFormatException();
             return page;
@@ -80,7 +85,7 @@ public class AdminDashboardService {
     private int days(String value) {
         if (value == null) return 30;
         try {
-            if (!value.matches("[0-9]+")) throw new NumberFormatException();
+            if (!value.matches("\\d+")) throw new NumberFormatException();
             int days = Integer.parseInt(value);
             if (days < 1 || days > 366) throw new NumberFormatException();
             return days;

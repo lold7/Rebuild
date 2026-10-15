@@ -278,7 +278,8 @@ class CartIntegrationTest {
         try {
             assertThat(cart.view("alice@example.com").items()).isEmpty();
             assertThatThrownBy(() -> cart.view("another@example.com")).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> cart.add("another@example.com", new AddCartItemRequest(1L, 1, "Paperback")))
+            var request = new AddCartItemRequest(1L, 1, "Paperback");
+            assertThatThrownBy(() -> cart.add("another@example.com", request))
                 .isInstanceOf(AccessDeniedException.class);
             // Admins may shop on the storefront, so only roles other than CUSTOMER/ADMIN are rejected.
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,

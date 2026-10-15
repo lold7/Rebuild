@@ -347,7 +347,7 @@ class AdminCustomerIntegrationTest {
             Object count = invocation.callRealMethod();
             if (inserted.compareAndSet(false, true)) CompletableFuture.runAsync(() -> customer("carol")).get(10, TimeUnit.SECONDS);
             return count;
-        }).when(jdbc).queryForObject(eq(COUNT), eq(Long.class), any(Object[].class));
+        }).when(jdbc).queryForObject(org.mockito.ArgumentMatchers.startsWith(COUNT), eq(Long.class), any(Object[].class));
         try {
             JsonNode page = ok(admin.get(API));
             assertThat(inserted).isTrue();
@@ -367,7 +367,7 @@ class AdminCustomerIntegrationTest {
             Object count = invocation.callRealMethod();
             if (inserted.compareAndSet(false, true)) CompletableFuture.runAsync(() -> seed(id, "completed", "paid", "10.00")).get(10, TimeUnit.SECONDS);
             return count;
-        }).when(jdbc).queryForObject(eq(COUNT + " AND coalesce(s.order_count, 0) = 0"), eq(Long.class), any(Object[].class));
+        }).when(jdbc).queryForObject(org.mockito.ArgumentMatchers.startsWith(COUNT), eq(Long.class), any(Object[].class));
         try {
             JsonNode page = ok(admin.get(API + "?activity=no-orders"));
             assertThat(inserted).isTrue();

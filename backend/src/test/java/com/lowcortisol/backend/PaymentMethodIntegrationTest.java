@@ -105,7 +105,7 @@ class PaymentMethodIntegrationTest {
         var columns = jdbc.queryForList("""
             SELECT column_name FROM information_schema.columns WHERE table_name = 'payment_methods'
             """, String.class);
-        assertThat(columns).doesNotContain("card_number", "pan", "cvv", "cvc", "security_code");
+        assertThat(columns).isNotEmpty().doesNotContain("card_number", "pan", "cvv", "cvc", "security_code");
     }
 
     @Test
@@ -347,12 +347,12 @@ class PaymentMethodIntegrationTest {
         Browser second = new Browser();
         ok(second.post("/api/auth/login", Map.of("email", "alice@example.com", "password", "correct-password")));
         var created = concurrent(first, "/add", card("CREDIT", "4242", false), second, "/add", card("DEBIT", "1111", false));
-        assertThat(created).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
+        assertThat(created).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(201));
         long firstId = json.readTree(created.get(0).body()).get("paymentMethodId").asLong();
         long secondId = json.readTree(created.get(1).body()).get("paymentMethodId").asLong();
         assertOneDefault();
         var selected = concurrent(first, "/default/" + firstId, Map.of(), second, "/default/" + secondId, Map.of());
-        assertThat(selected).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
+        assertThat(selected).hasSize(2).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
         assertThat(first.book().get("defaultPaymentMethodId").asLong()).isIn(firstId, secondId);
         assertOneDefault();
     }

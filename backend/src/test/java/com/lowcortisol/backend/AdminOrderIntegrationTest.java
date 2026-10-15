@@ -99,7 +99,7 @@ class AdminOrderIntegrationTest {
     }
 
     @Test
-    void listIncludesAllCustomersWithStablePagingAndCombinedFilters() throws Exception {
+    void listIncludesAllCustomersWithStablePaging() throws Exception {
         Browser admin = admin();
         customer("alice"); customer("bob");
         long alice = userId("alice@example.com"), bob = userId("bob@example.com");
@@ -113,6 +113,18 @@ class AdminOrderIntegrationTest {
         assertThat(third.get("items").size()).isEqualTo(2);
         assertThat(first.at("/items/0/order/orderId").asLong()).isEqualTo(newest);
         assertThat(first.at("/items/14/order/orderId").asLong()).isGreaterThan(second.at("/items/0/order/orderId").asLong());
+        JsonNode beyond = ok(admin.get(API + "?page=2147483647"));
+        assertThat(beyond.get("items").isEmpty()).isTrue();
+        assertThat(beyond.get("totalItems").asLong()).isEqualTo(32);
+    }
+
+    @Test
+    void listCombinesStatusCustomerAndSearchFilters() throws Exception {
+        Browser admin = admin();
+        customer("alice"); customer("bob");
+        long alice = userId("alice@example.com"), bob = userId("bob@example.com");
+        long newest = 0;
+        for (int i = 0; i < 32; i++) newest = seed(i % 2 == 0 ? alice : bob, i % 3 == 0 ? "completed" : "pending");
         JsonNode filtered = ok(admin.get(API + "?status=%20COMPLETED%20&customerId=" + alice + "&q=ALICE"));
         assertThat(filtered.get("totalItems").asLong()).isEqualTo(6);
         for (JsonNode item : filtered.get("items")) {
@@ -121,9 +133,6 @@ class AdminOrderIntegrationTest {
         }
         assertThat(ok(admin.get(API + "?q=bob%40example.com")).get("totalItems").asLong()).isEqualTo(16);
         assertThat(ok(admin.get(API + "?q=" + newest)).at("/items/0/order/orderId").asLong()).isEqualTo(newest);
-        JsonNode beyond = ok(admin.get(API + "?page=2147483647"));
-        assertThat(beyond.get("items").isEmpty()).isTrue();
-        assertThat(beyond.get("totalItems").asLong()).isEqualTo(32);
         assertThat(ok(admin.get(API + "?customerId=999999")).get("totalItems").asLong()).isZero();
     }
 
@@ -162,7 +171,7 @@ class AdminOrderIntegrationTest {
     }
 
     @Test
-    void completionPreservesPaymentStockAndSnapshotsAndRecordsActorAndReason() throws Exception {
+    void completionPreservesPaymentStockAndSnapshots() throws Exception {
         Browser admin = admin(), customer = customer("alice");
         long id = place(customer, 2);
         jdbc.update("UPDATE orders SET payment_status = 'paid' WHERE order_id = ?", id);
@@ -176,6 +185,13 @@ class AdminOrderIntegrationTest {
         assertThat(result.get("stockReleased").asBoolean()).isFalse();
         assertThat(stock(1)).isEqualTo(72);
         assertThat(count("inventory_adjustments")).isZero();
+    }
+
+    @Test
+    void completionRecordsActorReasonAndAppearsInCustomerHistory() throws Exception {
+        Browser admin = admin(), customer = customer("alice");
+        long id = place(customer, 2);
+        ok(admin.send("PUT", statusPath(id), change(" COMPLETED ", 0, " Shipped to customer ")));
         JsonNode history = ok(admin.get(API + "/" + id + "/status-history"));
         assertThat(history.get("totalItems").asLong()).isEqualTo(1);
         assertThat(history.at("/items/0/previousStatus").asText()).isEqualTo("pending");
@@ -207,11 +223,10 @@ class AdminOrderIntegrationTest {
     }
 
     @Test
-    void cancellationAggregatesFormatsRestoresOnceAndInvalidatesStaleInventoryEdits() throws Exception {
+    void cancellationAggregatesFormatsRestoresStockAndRecordsInventoryChanges() throws Exception {
         Browser admin = admin(), customer = customer("alice");
         int otherBefore = stock(14);
-        customer.add(1, 2, "Paperback"); customer.add(1, 3, "Hardcover"); customer.add(14, 1, "Paperback");
-        JsonNode original = created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")));
+        JsonNode original = placeMultiFormatOrder(customer);
         long id = original.get("orderId").asLong();
         JsonNode cancelled = ok(admin.send("PUT", statusPath(id), change("cancelled", 0, "Customer requested cancellation")));
         assertThat(cancelled.at("/order/status").asText()).isEqualTo("cancelled");
@@ -226,12 +241,28 @@ class AdminOrderIntegrationTest {
         assertThat(ledger.at("/items/0/quantityAfter").asInt()).isEqualTo(74);
         assertThat(ledger.at("/items/0/orderId").asLong()).isEqualTo(id);
         assertThat(ledger.at("/items/0/delta").asLong()).isEqualTo(5);
-        assertThat(ok(customer.get("/api/cart")).get("totalQuantity").asInt()).isZero();
+    }
+
+    @Test
+    void cancellationRetriesPreserveSnapshotsAndRejectStaleOrderAndInventoryVersions() throws Exception {
+        Browser admin = admin(), customer = customer("alice");
+        JsonNode original = placeMultiFormatOrder(customer);
+        long id = original.get("orderId").asLong();
+        JsonNode cancelled = ok(admin.send("PUT", statusPath(id), change("cancelled", 0, "Customer requested cancellation")));
         assertThat(ok(customer.get("/api/account/orders?status=cancelled")).at("/items/0/items")).isEqualTo(original.get("items"));
         assertThat(ok(admin.send("PUT", statusPath(id), change("cancelled", 1, "Retry")))).isEqualTo(cancelled);
         assertError(admin.send("PUT", statusPath(id), change("cancelled", 0, "Stale")), 409, "STALE_ORDER_VERSION");
         assertError(admin.send("PUT", "/api/admin/products/1/stock", Map.of("quantity", 69, "expectedVersion", 1, "reason", "Old form")), 409, "STALE_PRODUCT_VERSION");
         assertThat(stock(1)).isEqualTo(74);
+    }
+
+    @Test
+    void reversingCancellationDeductsAggregatedStockAndRecordsInventoryChanges() throws Exception {
+        Browser admin = admin(), customer = customer("alice");
+        int otherBefore = stock(14);
+        long id = placeMultiFormatOrder(customer).get("orderId").asLong();
+        ok(admin.send("PUT", statusPath(id), change("cancelled", 0, "Customer requested cancellation")));
+        assertThat(ok(customer.get("/api/cart")).get("totalQuantity").asInt()).isZero();
         // Reversing the cancellation takes the books out of stock again.
         JsonNode reopened = ok(admin.send("PUT", statusPath(id), change("completed", 1, "Reopen")));
         assertThat(reopened.at("/order/status").asText()).isEqualTo("completed");
@@ -396,13 +427,15 @@ class AdminOrderIntegrationTest {
         try {
             assertThat(orders.list("admin@example.com", "1", null, "", null).totalItems()).isZero();
             assertThatThrownBy(() -> orders.list("other@example.com", "1", null, "", null)).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> orders.updateStatus("admin@example.com", 1, new UpdateOrderStatusRequest("completed", null, "Reason")))
+            var invalidStatusRequest = new UpdateOrderStatusRequest("completed", null, "Reason");
+            assertThatThrownBy(() -> orders.updateStatus("admin@example.com", 1, invalidStatusRequest))
                 .isInstanceOf(ConstraintViolationException.class);
             assertThatThrownBy(() -> orders.updateStatus("admin@example.com", 1, null)).isInstanceOf(ConstraintViolationException.class);
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice@example.com", null,
                 List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
             assertThatThrownBy(() -> orders.get("alice@example.com", 1)).isInstanceOf(AccessDeniedException.class);
-            assertThatThrownBy(() -> orders.updateStatus("alice@example.com", 1, new UpdateOrderStatusRequest("cancelled", 0L, "Reason")))
+            var cancellationRequest = new UpdateOrderStatusRequest("cancelled", 0L, "Reason");
+            assertThatThrownBy(() -> orders.updateStatus("alice@example.com", 1, cancellationRequest))
                 .isInstanceOf(AccessDeniedException.class);
         } finally { SecurityContextHolder.clearContext(); }
     }
@@ -492,7 +525,7 @@ class AdminOrderIntegrationTest {
                 CompletableFuture.runAsync(() -> seed(customerId, "pending")).get(10, TimeUnit.SECONDS);
             }
             return count;
-        }).when(jdbc).queryForObject(eq("SELECT count(*) FROM orders o JOIN users u ON u.user_id = o.user_id WHERE TRUE "),
+        }).when(jdbc).queryForObject(org.mockito.ArgumentMatchers.startsWith("SELECT count(*) FROM orders o JOIN users u ON u.user_id = o.user_id WHERE TRUE "),
             eq(Long.class), any(Object[].class));
         try {
             JsonNode page = ok(admin.get(API));
@@ -532,6 +565,16 @@ class AdminOrderIntegrationTest {
             VALUES (?, 1, '{"productId":1,"productName":"Original book"}'::jsonb, '{"format":"Paperback"}'::jsonb, 1, 18)
             """, id);
         return id;
+    }
+
+    private JsonNode placeMultiFormatOrder(Browser customer) throws Exception {
+        // Seed cart selections directly; these tests exercise admin transitions after a real checkout.
+        jdbc.update("""
+            INSERT INTO cart_items (user_id, product_id, quantity, selected_attributes)
+            VALUES (?, 1, 2, '{"format":"Paperback"}'::jsonb),
+                (?, 1, 3, '{"format":"Hardcover"}'::jsonb), (?, 14, 1, '{"format":"Paperback"}'::jsonb)
+            """, userId("alice@example.com"), userId("alice@example.com"), userId("alice@example.com"));
+        return created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")));
     }
 
     private long place(Browser customer, int quantity) throws Exception {

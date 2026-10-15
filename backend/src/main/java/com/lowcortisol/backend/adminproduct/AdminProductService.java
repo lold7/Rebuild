@@ -23,6 +23,7 @@ import org.springframework.validation.annotation.Validated;
 @PreAuthorize("hasRole('ADMIN') && #email == authentication.name")
 public class AdminProductService {
     private static final int PAGE_SIZE = 15;
+    private static final String FORMAT = "format";
     private final AdminProductRepository products;
     private final ObjectMapper json;
 
@@ -150,33 +151,41 @@ public class AdminProductService {
         text(result, "isbn", 32);
         text(result, "sku", 100);
         if (result.has("sku") && result.get("sku").asText().isEmpty()) result.remove("sku");
-        if (result.has("format")) {
-            JsonNode format = result.get("format");
-            if (format.isTextual()) {
-                String normalized = format.asText().trim();
-                if (normalized.isEmpty() || normalized.length() > 50) throw AdminProductException.invalid("Invalid format");
-                result.put("format", normalized);
-            } else if (format.isArray() && format.size() <= 10) {
-                var formats = json.createArrayNode();
-                Set<String> seen = new HashSet<>();
-                for (JsonNode item : format) {
-                    String normalized = item.isTextual() ? item.asText().trim() : "";
-                    if (normalized.isEmpty() || normalized.length() > 50 || !seen.add(normalized.toLowerCase(Locale.ROOT))) {
-                        throw AdminProductException.invalid("Formats must be distinct nonblank strings of at most 50 characters");
-                    }
-                    formats.add(normalized);
-                }
-                result.set("format", formats);
-            } else throw AdminProductException.invalid("format must be a string or an array of up to 10 strings");
-        }
-        if (result.has("discount")) {
-            JsonNode discount = result.get("discount");
-            if (!discount.isNumber() || discount.decimalValue().compareTo(BigDecimal.ZERO) < 0
-                || discount.decimalValue().compareTo(new BigDecimal("100")) > 0 || discount.decimalValue().stripTrailingZeros().scale() > 2) {
-                throw AdminProductException.invalid("discount must be a percentage between 0 and 100 with at most two decimals");
-            }
-        }
+        if (result.has(FORMAT)) result.set(FORMAT, format(result.get(FORMAT)));
+        validateDiscount(result);
         return result;
+    }
+
+    private JsonNode format(JsonNode value) {
+        if (value.isTextual()) {
+            String normalized = value.asText().trim();
+            if (normalized.isEmpty() || normalized.length() > 50) throw AdminProductException.invalid("Invalid format");
+            return json.getNodeFactory().textNode(normalized);
+        }
+        if (value.isArray() && value.size() <= 10) return formatList(value);
+        throw AdminProductException.invalid("format must be a string or an array of up to 10 strings");
+    }
+
+    private JsonNode formatList(JsonNode value) {
+        var formats = json.createArrayNode();
+        Set<String> seen = new HashSet<>();
+        for (JsonNode item : value) {
+            String normalized = item.isTextual() ? item.asText().trim() : "";
+            if (normalized.isEmpty() || normalized.length() > 50 || !seen.add(normalized.toLowerCase(Locale.ROOT))) {
+                throw AdminProductException.invalid("Formats must be distinct nonblank strings of at most 50 characters");
+            }
+            formats.add(normalized);
+        }
+        return formats;
+    }
+
+    private void validateDiscount(ObjectNode value) {
+        if (!value.has("discount")) return;
+        JsonNode discount = value.get("discount");
+        if (!discount.isNumber() || discount.decimalValue().compareTo(BigDecimal.ZERO) < 0
+            || discount.decimalValue().compareTo(new BigDecimal("100")) > 0 || discount.decimalValue().stripTrailingZeros().scale() > 2) {
+            throw AdminProductException.invalid("discount must be a percentage between 0 and 100 with at most two decimals");
+        }
     }
 
     private void text(ObjectNode value, String key, int limit) {
@@ -206,14 +215,14 @@ public class AdminProductService {
 
     private int integer(String value) {
         try {
-            if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+            if (value == null || !value.matches("\\d+")) throw new NumberFormatException();
             return Integer.parseInt(value);
         } catch (NumberFormatException exception) { throw AdminProductException.invalid("Expected a nonnegative 32-bit integer"); }
     }
 
     static long id(String value) {
         try {
-            if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+            if (value == null || !value.matches("\\d+")) throw new NumberFormatException();
             long id = Long.parseLong(value);
             if (id < 1) throw new NumberFormatException();
             return id;

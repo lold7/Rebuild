@@ -41,7 +41,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.reset;
 
@@ -245,7 +244,7 @@ class AdminDashboardIntegrationTest {
     }
 
     @Test
-    void checkoutAndCancellationImmediatelyUpdateAllDashboardSections() throws Exception {
+    void checkoutImmediatelyUpdatesDashboardOrderTotalsAndInventory() throws Exception {
         Browser admin = admin(), customer = new Browser();
         created(customer.send("POST", "/api/auth/register", Map.of("username", "Alice", "email", "alice@example.com", "password", "correct-password")));
         ok(customer.send("POST", "/api/auth/login", Map.of("email", "alice@example.com", "password", "correct-password")));
@@ -259,6 +258,17 @@ class AdminDashboardIntegrationTest {
         assertThat(placed.get("totalRevenue").decimalValue()).isEqualByComparingTo("0");
         assertThat(placed.get("orderValue")).isEqualTo(order.get("totalPrice"));
         assertThat(placed.at("/inventory/totalUnits").asLong()).isEqualTo(before.at("/inventory/totalUnits").asLong() - 2);
+    }
+
+    @Test
+    void cancellationImmediatelyUpdatesDashboardStatusSalesAndRestoresInventory() throws Exception {
+        Browser admin = admin(), customer = new Browser();
+        created(customer.send("POST", "/api/auth/register", Map.of("username", "Alice", "email", "alice@example.com", "password", "correct-password")));
+        ok(customer.send("POST", "/api/auth/login", Map.of("email", "alice@example.com", "password", "correct-password")));
+        created(customer.send("POST", "/api/account/addresses/add", Map.of("fullName", "Alice", "addressLine", "Street")));
+        JsonNode before = ok(admin.get(API));
+        ok(customer.send("POST", "/api/cart/add", Map.of("productId", 1, "quantity", 2, "selectedFormat", "Paperback")));
+        JsonNode order = created(customer.send("POST", "/api/orders", Map.of("paymentMethod", "BANK_TRANSFER")));
         ok(admin.send("PUT", "/api/admin/orders/" + order.get("orderId").asLong() + "/status", Map.of("status", "cancelled", "expectedVersion", 0, "reason", "Cancel")));
         JsonNode cancelled = ok(admin.get(API));
         assertThat(cancelled.get("pendingOrders").asLong()).isZero();
@@ -346,7 +356,7 @@ class AdminDashboardIntegrationTest {
                 })).get(10, TimeUnit.SECONDS);
             }
             return time;
-        }).when(jdbc).queryForObject(eq("SELECT CURRENT_TIMESTAMP"), eq(OffsetDateTime.class));
+        }).when(jdbc).queryForObject("SELECT CURRENT_TIMESTAMP", OffsetDateTime.class);
         try {
             JsonNode during = ok(admin.get(API));
             assertThat(changed).isTrue();

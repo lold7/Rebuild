@@ -95,20 +95,66 @@ public class AdminCategoryService {
     }
 
     private String generatedSlug(String name) {
-        String generated = Normalizer.normalize(name, Normalizer.Form.NFD).replaceAll("\\p{M}+", "")
-            .toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        StringBuilder unaccented = new StringBuilder();
+        Normalizer.normalize(name, Normalizer.Form.NFD).codePoints().forEach(codePoint -> {
+            int type = Character.getType(codePoint);
+            if (type != Character.NON_SPACING_MARK && type != Character.COMBINING_SPACING_MARK
+                && type != Character.ENCLOSING_MARK) unaccented.appendCodePoint(codePoint);
+        });
+        String normalized = unaccented.toString().toLowerCase(Locale.ROOT);
+        StringBuilder result = new StringBuilder();
+        boolean separator = false;
+        for (int i = 0; i < normalized.length(); i++) {
+            char character = normalized.charAt(i);
+            if (asciiLetter(character) || asciiDigit(character)) {
+                if (separator && !result.isEmpty()) result.append('-');
+                result.append(character);
+                separator = false;
+            } else {
+                separator = true;
+            }
+        }
+        String generated = result.toString();
         if (generated.isEmpty()) generated = "category-" + UUID.randomUUID();
-        if (!generated.matches(".*[a-z].*")) generated = "category-" + generated;
+        if (!containsLetter(generated)) generated = "category-" + generated;
         return slug(generated);
     }
 
     private String slug(String value) {
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if (normalized.length() > 120 || !normalized.matches("[a-z0-9]+(-[a-z0-9]+)*") || !normalized.matches(".*[a-z].*")) {
+        if (normalized.length() > 120 || !validSlug(normalized)) {
             throw AdminCategoryException.invalid("slug must contain lowercase letters/digits separated by single hyphens, include a letter, and be at most 120 characters");
         }
         return normalized;
     }
+
+    private boolean validSlug(String value) {
+        boolean separator = true;
+        boolean letter = false;
+        for (int i = 0; i < value.length(); i++) {
+            char character = value.charAt(i);
+            if (asciiLetter(character) || asciiDigit(character)) {
+                letter |= asciiLetter(character);
+                separator = false;
+            } else if (character == '-' && !separator) {
+                separator = true;
+            } else {
+                return false;
+            }
+        }
+        return letter && !separator;
+    }
+
+    private boolean containsLetter(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (asciiLetter(value.charAt(i))) return true;
+        }
+        return false;
+    }
+
+    private boolean asciiLetter(char character) { return character >= 'a' && character <= 'z'; }
+
+    private boolean asciiDigit(char character) { return character >= '0' && character <= '9'; }
 
     private String image(String value) {
         if (value == null || value.isBlank()) return null;
@@ -129,7 +175,7 @@ public class AdminCategoryService {
     static Long number(String value) {
         if (value == null) return null;
         try {
-            if (!value.matches("[0-9]+")) throw new NumberFormatException();
+            if (!value.matches("\\d+")) throw new NumberFormatException();
             return Long.parseLong(value);
         } catch (NumberFormatException exception) { throw AdminCategoryException.invalid("Expected a nonnegative 64-bit integer"); }
     }

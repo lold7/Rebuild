@@ -37,7 +37,7 @@ public class OrderController {
 
     private long id(String value) {
         try {
-            if (!value.matches("[0-9]+")) throw new NumberFormatException();
+            if (!value.matches("\\d+")) throw new NumberFormatException();
             long parsed = Long.parseLong(value);
             if (parsed < 1) throw new NumberFormatException();
             return parsed;
